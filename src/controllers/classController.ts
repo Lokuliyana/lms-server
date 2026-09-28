@@ -72,3 +72,14 @@ export const getEnrolledStudents = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
+
+export const getEnrolledClasses = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user._id;
+    const classes = await classService.getEnrolledClassesForUser(userId);
+    res.json({ success: true, data: classes });
+  } catch (error: any) {
+    console.error('Error fetching enrolled classes:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
