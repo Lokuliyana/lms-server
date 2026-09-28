@@ -1,0 +1,40 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.app = void 0;
+const express_1 = __importDefault(require("express"));
+const cors_1 = __importDefault(require("cors"));
+const helmet_1 = __importDefault(require("helmet"));
+const morgan_1 = __importDefault(require("morgan"));
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
+const errorHandler_1 = require("./middlewares/errorHandler");
+const authRoutes_1 = require("./routes/authRoutes");
+const usersRoutes_1 = require("./routes/usersRoutes");
+const permissionsRoutes_1 = __importDefault(require("./routes/permissionsRoutes"));
+const classRoutes_1 = __importDefault(require("./routes/classRoutes"));
+const classApplicationRoutes_1 = __importDefault(require("./routes/classApplicationRoutes"));
+const quizRoutes_1 = __importDefault(require("./routes/quizRoutes"));
+const assignmentRoutes_1 = __importDefault(require("./routes/assignmentRoutes"));
+const recordingsRoutes_1 = __importDefault(require("./routes/recordingsRoutes"));
+const mediaRoute_1 = __importDefault(require("./routes/mediaRoute"));
+const app = (0, express_1.default)();
+exports.app = app;
+app.use((0, helmet_1.default)());
+app.use((0, cors_1.default)({ origin: true, credentials: true }));
+app.use(express_1.default.json());
+app.use((0, cookie_parser_1.default)());
+app.use((0, morgan_1.default)('dev'));
+// Routes
+app.use('/api/auth', authRoutes_1.authRoutes);
+app.use('/api/users', usersRoutes_1.usersRoutes);
+app.use('/api/permissions', permissionsRoutes_1.default);
+app.use('/api/classes', classRoutes_1.default);
+app.use('/api/class-applications', classApplicationRoutes_1.default);
+app.use('/api/quizzes', quizRoutes_1.default);
+app.use('/api/assignments', assignmentRoutes_1.default);
+app.use('/api/recordings', recordingsRoutes_1.default);
+app.use('/api/media', mediaRoute_1.default);
+// Fix 7.5: Global error handler
+app.use(errorHandler_1.errorHandler);
