@@ -1,3 +1,4 @@
+// @ts-nocheck
 // services/quizAndChallengeService.js
 
 import mongoose from "mongoose";
@@ -11,16 +12,22 @@ import { QuizSubmission } from "../models/QuizSubmission";
 import { UserPerformance } from "../models/UserPerformance";
 import { ChallengeMatch } from "../models/ChallengeMatch";
 import { User } from "../models/User";
+import { TenantSettings } from "../models/TenantSettings";
+import { Subject } from "../models/Subject";
+import { Grade } from "../models/Grade";
+import { resolveSubject, resolveGrade } from "../utils/taxonomyResolver";
 
-const weekKey = () => {
-  const d = new Date();
+// Ensure referenced models are registered in mongoose model registry
+const _requiredModels = [Subject, Grade, Class];
+
+
+const weekKey = (d: Date = new Date()) => {
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - d.getDay()); // Sunday
   return d.toISOString().split("T")[0];
 };
 
-const monthKey = () => {
-  const d = new Date();
+const monthKey = (d: Date = new Date()) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
@@ -34,16 +41,26 @@ const mailer = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
-async function sendMail({ to, subject, text, html }) {
+async function getPlatformName(): Promise<string> {
   try {
+    const settings = await TenantSettings.findOne().lean();
+    return settings?.platformName || "NexvoLearn";
+  } catch {
+    return "NexvoLearn";
+  }
+}
+
+async function sendMail({ to, subject, text, html }: { to: any; subject: any; text: any; html?: any }) {
+  try {
+    const platformName = await getPlatformName();
     await mailer.sendMail({
-      from: `"Mr. MathsScience" <${process.env.EMAIL_USER}>`,
+      from: `"${platformName}" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,
       html: html || text,
     });
-  } catch (e) {
+  } catch (e: any) {
     console.warn("Email send failed:", e?.message || e);
   }
 }
@@ -237,13 +254,17 @@ async function applySubmissionToPerf({
 // =====================================================
 // Quiz: Authoring & Retrieval
 // =====================================================
-exports.createQuiz = async (data) => {
+export const createQuiz = async (data) => {
   try {
+    const resolvedSubject = await resolveSubject(data.subject);
+    const resolvedGrade = await resolveGrade(data.grade);
+
     const doc = {
       title: data.title,
       instructions: data.instructions,
       class_id: data.class_id || undefined,
-      subject: data.subject || undefined,
+      subject: resolvedSubject,
+      grade: resolvedGrade,
       difficulty: data.difficulty || "Easy",
       time_limit_sec: data.time_limit_sec ?? 0,
       question_count: data.question_count ?? undefined,
@@ -258,15 +279,16 @@ exports.createQuiz = async (data) => {
     if (error?.name === "ValidationError") {
       throw new Error(
         Object.values(error.errors)
-          .map((e) => e.message)
+          .map((e: any) => e.message)
           .join(", ")
       );
     }
-    throw new Error("Error creating quiz");
+    throw error;
   }
 };
 
-exports.addQuestionsToQuiz = async (quizId, questions) => {
+
+export const addQuestionsToQuiz = async (quizId, questions) => {
   try {
     const quiz = await Quiz.findById(quizId);
     if (!quiz) throw new Error("Quiz not found");
@@ -281,7 +303,7 @@ exports.addQuestionsToQuiz = async (quizId, questions) => {
   }
 };
 
-exports.updateQuestion = async (questionId, data) => {
+export const updateQuestion = async (questionId, data) => {
   try {
     const question = await QuizQuestion.findById(questionId);
     if (!question) throw new Error("Question not found");
@@ -314,10 +336,11 @@ exports.updateQuestion = async (questionId, data) => {
 };
 
 // SAFE list with grade + questions sans answers
-exports.getAllQuizzesForPlay = async () => {
+export const getAllQuizzesForPlay = async () => {
   try {
-    const quizzes = await Quiz.find({ is_active: true })
-      .populate("class_id", "grade")
+    const quizzes = await Quiz.find({ is_active: true, is_deleted: { $ne: true } })
+      .populate({ path: "class_id", populate: { path: "grade", select: "name" } })
+      .populate("subject", "name")
       .lean();
 
     const quizIds = quizzes.map((q) => q._id);
@@ -332,36 +355,75 @@ exports.getAllQuizzesForPlay = async () => {
       map[id].push(stripSolutions(q));
     }
 
-    return quizzes.map((quiz) => ({
-      ...quiz,
-      grade: quiz.class_id?.grade || null,
-      questions: map[quiz._id.toString()] || [],
-    }));
-  } catch {
+    return quizzes.map((quiz: any) => {
+      const quizQuestions = map[quiz._id.toString()] || [];
+      const computedCount = quizQuestions.length > 0 ? quizQuestions.length : (Number(quiz.question_count) || 0);
+      const computedMarks = quizQuestions.reduce((sum, q: any) => sum + (Number(q.marks) || 1), 0);
+      const totalMarks = computedMarks > 0 ? computedMarks : (computedCount > 0 ? computedCount * 5 : 25);
+      const timeLimitSec = Number(quiz.time_limit_sec) > 0 
+        ? Number(quiz.time_limit_sec) 
+        : (computedCount > 0 ? computedCount * 120 : 600);
+      const subjectName = typeof quiz.subject === "object" && quiz.subject?.name ? quiz.subject.name : (quiz.subject || "General");
+      const gradeName = quiz.class_id?.grade?.name || quiz.class_id?.grade || quiz.grade || "N/A";
+
+      return {
+        ...quiz,
+        subject: subjectName,
+        grade: gradeName,
+        questions: quizQuestions,
+        question_count: computedCount,
+        time_limit_sec: timeLimitSec,
+        total_marks: totalMarks,
+      };
+    });
+  } catch (err: any) {
+    console.error("Error in getAllQuizzesForPlay:", err);
     throw new Error("Error fetching quizzes");
   }
 };
 
 // SAFE single quiz for play
-exports.getQuizByIdForPlay = async (quizId) => {
+export const getQuizByIdForPlay = async (quizId) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(quizId)) return null;
 
-    const quiz = await Quiz.findById(quizId).lean();
+    const quiz: any = await Quiz.findById(quizId)
+      .populate({ path: "class_id", populate: { path: "grade", select: "name" } })
+      .populate("subject", "name")
+      .lean();
     if (!quiz) return null;
 
     const questions = await QuizQuestion.find({ quiz_id: quiz._id })
       .select("quiz_id type question options image marks sliderRange dragItems")
       .lean();
 
-    return { ...quiz, questions: questions.map(stripSolutions) };
-  } catch {
+    const stripped = questions.map(stripSolutions);
+    const computedCount = stripped.length > 0 ? stripped.length : (Number(quiz.question_count) || 0);
+    const computedMarks = stripped.reduce((sum, q: any) => sum + (Number(q.marks) || 1), 0);
+    const totalMarks = computedMarks > 0 ? computedMarks : (computedCount > 0 ? computedCount * 5 : 25);
+    const timeLimitSec = Number(quiz.time_limit_sec) > 0 
+      ? Number(quiz.time_limit_sec) 
+      : (computedCount > 0 ? computedCount * 120 : 600);
+    const subjectName = typeof quiz.subject === "object" && quiz.subject?.name ? quiz.subject.name : (quiz.subject || "General");
+    const gradeName = quiz.class_id?.grade?.name || quiz.class_id?.grade || quiz.grade || "N/A";
+
+    return {
+      ...quiz,
+      subject: subjectName,
+      grade: gradeName,
+      questions: stripped,
+      question_count: computedCount,
+      time_limit_sec: timeLimitSec,
+      total_marks: totalMarks,
+    };
+  } catch (err: any) {
+    console.error("Error in getQuizByIdForPlay:", err);
     throw new Error("Error retrieving quiz");
   }
 };
 
 // Owner-only detailed view after a submission
-exports.getSubmissionById = async (submissionId, userId) => {
+export const getSubmissionById = async (submissionId, userId) => {
   if (!mongoose.Types.ObjectId.isValid(submissionId)) return null;
 
   const submission = await QuizSubmission.findById(submissionId)
@@ -432,7 +494,7 @@ exports.getSubmissionById = async (submissionId, userId) => {
 // =====================================================
 // Quiz: Submission (+perf, +attach to challenges)
 // =====================================================
-exports.submitQuiz = async (
+export const submitQuiz = async (
   userId,
   quizId,
   answerMap,
@@ -540,7 +602,7 @@ exports.submitQuiz = async (
 // =====================================================
 // First-Attempt Leaderboard
 // =====================================================
-exports.getFirstAttemptLeaderboard = async ({
+export const getFirstAttemptLeaderboard = async ({
   quizId,
   limit = 50,
   grade, // optional StudentProfile.grade
@@ -633,7 +695,7 @@ exports.getFirstAttemptLeaderboard = async ({
 // =====================================================
 // Admin/Student summaries
 // =====================================================
-exports.getUserQuizPerformance = async ({ user_id, month }) => {
+export const getUserQuizPerformance = async ({ user_id, month }) => {
   const match = { user_id: new mongoose.Types.ObjectId(user_id) };
 
   if (month) {
@@ -707,6 +769,7 @@ function buildChallengeEmailHtml({
   creatorName,
   opponentName,
   matchUrl,
+  platformName = "NexvoLearn",
 }) {
   return `
 <!DOCTYPE html>
@@ -893,7 +956,7 @@ function buildChallengeEmailHtml({
       </div>
       <div class="footer">
         <p class="footer-text">
-          © ${new Date().getFullYear()} Mr MathsScience LK. All rights reserved.<br />
+          © ${new Date().getFullYear()} ${escapeHtml(platformName)}. All rights reserved.<br />
           You received this because you are part of the ${escapeHtml(appUrl.replace(/^https?:\/\//, ""))} community.
         </p>
       </div>
@@ -917,6 +980,7 @@ function buildChallengeResultEmailHtml({
   winnerName,
   isDraw,
   tiebreak,
+  platformName = "NexvoLearn",
 }) {
   const winnerText = isDraw ? "It's a Draw!" : `${winnerName} Won!`;
   const resultColor = isDraw ? "#64748b" : "#10b981";
@@ -979,7 +1043,7 @@ function buildChallengeResultEmailHtml({
         ${tiebreak !== "none" ? `<div class="tiebreak-info">Tiebreak applied: ${tiebreak.replace("_", " ")}</div>` : ""}
       </div>
       <div class="footer">
-        © ${new Date().getFullYear()} Mr MathsScience LK. All rights reserved.
+        © ${new Date().getFullYear()} ${escapeHtml(platformName)}. All rights reserved.
       </div>
     </div>
   </div>
@@ -992,10 +1056,10 @@ function buildChallengeResultEmailHtml({
 const APP_URL =
   process.env.APP_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  "https://www.danidu.com";
+  "https://www.nexvolearn.com";
 
 // Create a targeted async challenge and email the opponent
-exports.createChallenge = async ({ creatorId, opponentId, quizId, url }) => {
+export const createChallenge = async ({ creatorId, opponentId, quizId, url }) => {
   const [quiz, creator, opponent] = await Promise.all([
     Quiz.findById(quizId).lean(),
     User.findById(creatorId).lean(),
@@ -1078,6 +1142,8 @@ exports.createChallenge = async ({ creatorId, opponentId, quizId, url }) => {
 
   const text = textLines.join("\n");
 
+  const platformName = await getPlatformName();
+
   const html = buildChallengeEmailHtml({
     logoUrl,
     appUrl: APP_URL,
@@ -1085,6 +1151,7 @@ exports.createChallenge = async ({ creatorId, opponentId, quizId, url }) => {
     creatorName: creator.full_name,
     opponentName: opponent.full_name,
     matchUrl,
+    platformName,
   });
 
   // Email opponent (HTML + text)
@@ -1099,7 +1166,7 @@ exports.createChallenge = async ({ creatorId, opponentId, quizId, url }) => {
 };
 
 // List my challenges
-exports.getMyChallenges = async ({ userId, status }) => {
+export const getMyChallenges = async ({ userId, status }) => {
   const match = { $or: [{ p1_id: userId }, { p2_id: userId }] };
   if (status) match.status = status;
 
@@ -1111,7 +1178,7 @@ exports.getMyChallenges = async ({ userId, status }) => {
 };
 
 // Explicitly attach a finished submission (idempotent per side)
-exports.acceptChallenge = async ({ matchId, userId }) => {
+export const acceptChallenge = async ({ matchId, userId }) => {
   const match = await ChallengeMatch.findById(matchId);
   if (!match) throw new Error("Match not found");
   if (match.status !== "queued") throw new Error("Match not available");
@@ -1126,7 +1193,7 @@ exports.acceptChallenge = async ({ matchId, userId }) => {
   return match;
 };
 
-exports.submitMatchAttempt = async ({ matchId, userId, submissionId }) => {
+export const submitMatchAttempt = async ({ matchId, userId, submissionId }) => {
   const match = await ChallengeMatch.findById(matchId);
   if (!match) throw new Error("Match not found");
   if (!["queued", "in_progress"].includes(match.status))
@@ -1397,6 +1464,8 @@ async function resolveChallenge(match) {
     .filter(Boolean)
     .join("\n");
 
+  const platformName = await getPlatformName();
+
   const html = buildChallengeResultEmailHtml({
     logoUrl: "https://akeagjxcoxqqfjurotod.supabase.co/storage/v1/object/public/files/class/new/1766611984449-logo.png",
     appUrl: APP_URL,
@@ -1414,6 +1483,7 @@ async function resolveChallenge(match) {
       : null,
     isDraw: doc.winner === null,
     tiebreak: doc.tiebreak,
+    platformName,
   });
 
   await Promise.all([
@@ -1465,7 +1535,7 @@ function buildPerfFilter({
   return filter;
 }
 
-exports.getLeaderboard = async ({
+export const getLeaderboard = async ({
   scope_type,
   scope_id,
   subject,
@@ -1513,7 +1583,7 @@ exports.getLeaderboard = async ({
   };
 };
 
-exports.getMyLeaderboardPosition = async ({ userId, ...rest }) => {
+export const getMyLeaderboardPosition = async ({ userId, ...rest }) => {
   const filter = buildPerfFilter(rest);
   const metric = ["average_score", "efficiency", "elo"].includes(rest.metric)
     ? rest.metric
@@ -1560,7 +1630,7 @@ async function getMyClassIds(meId) {
  * Priority score = same grade (x3) + same class (x2) + capped recent duels + recency bonus
  * Inputs: { userId, limit = 20, recentDays = 30 }
  */
-exports.getFriendList = async ({ userId, limit = 20, recentDays = 30 }) => {
+export const getFriendList = async ({ userId, limit = 20, recentDays = 30 }) => {
   // harden params
   limit = Number.isFinite(+limit) ? +limit : 20;
   recentDays = Number.isFinite(+recentDays) ? +recentDays : 30;
@@ -1767,4 +1837,199 @@ exports.getFriendList = async ({ userId, limit = 20, recentDays = 30 }) => {
 };
 
 // Explicit export so existing imports still work
-exports.applySubmissionToPerf = applySubmissionToPerf;
+
+
+export const getQuizByIdForUpdate = async (id: any) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+  const quiz = await Quiz.findById(id).lean();
+  if (!quiz) return null;
+  const questions = await QuizQuestion.find({ quiz_id: quiz._id }).lean();
+  return {
+    ...quiz,
+    questions,
+    question_count: questions.length > 0 ? questions.length : (Number(quiz.question_count) || 0),
+    time_limit_sec: Number(quiz.time_limit_sec) || 0,
+  };
+};
+
+export const deleteQuestion = async (questionId: any) => {
+  if (!mongoose.Types.ObjectId.isValid(questionId)) return { message: "Invalid question id" };
+  await QuizQuestion.findByIdAndDelete(questionId);
+  return { message: "Question deleted successfully" };
+};
+
+export const updateQuiz = async (id: any, payload: any) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+  if (payload.subject !== undefined) {
+    payload.subject = await resolveSubject(payload.subject);
+  }
+  if (payload.grade !== undefined) {
+    payload.grade = await resolveGrade(payload.grade);
+  }
+  return await Quiz.findByIdAndUpdate(id, { $set: payload }, { new: true });
+};
+
+export const upsertQuizAndQuestions = async (data: any) => {
+  let quizId = data._id || data.id;
+  let quiz;
+  const timeLimit = Number(data.time_limit_sec);
+  const qCount = Array.isArray(data.questions) && data.questions.length > 0
+    ? data.questions.length
+    : (Number(data.question_count) || 0);
+
+  const resolvedSubject = await resolveSubject(data.subject);
+  const resolvedGrade = await resolveGrade(data.grade);
+
+  const quizPayload: any = {
+    title: String(data.title || "Untitled Quiz").trim(),
+    instructions: String(data.instructions || data.description || "").trim(),
+    class_id: data.class_id && data.class_id !== "none" ? data.class_id : undefined,
+    subject: resolvedSubject,
+    grade: resolvedGrade,
+    difficulty: ["Easy", "Medium", "Hard"].includes(data.difficulty) ? data.difficulty : "Easy",
+    time_limit_sec: Number.isFinite(timeLimit) ? Math.max(0, timeLimit) : 0,
+    question_count: qCount,
+    is_active: typeof data.is_active === "boolean" ? data.is_active : true,
+    matchmaking_enabled: typeof data.matchmaking_enabled === "boolean" ? data.matchmaking_enabled : true,
+    async_enabled: typeof data.async_enabled === "boolean" ? data.async_enabled : true,
+  };
+
+
+  if (quizId && mongoose.Types.ObjectId.isValid(quizId)) {
+    quiz = await Quiz.findByIdAndUpdate(quizId, { $set: quizPayload }, { new: true });
+  } else {
+    quiz = await Quiz.create({ ...quizPayload, created_by: data.created_by });
+    quizId = quiz._id;
+  }
+
+  if (Array.isArray(data.questions) && data.questions.length > 0) {
+    await QuizQuestion.deleteMany({ quiz_id: quizId });
+    const qs = data.questions.map((q: any) => ({
+      quiz_id: quizId,
+      type: q.type || "mcq",
+      question: q.question,
+      options: q.options,
+      correct_answer: q.correct_answer ?? q.correctAnswer ?? (q.options ? q.options[0] : ""),
+      explanation: q.explanation,
+      marks: Number(q.marks) || 1,
+      image: q.image || null,
+      sliderRange: q.sliderRange,
+      dragItems: q.dragItems,
+    }));
+    await QuizQuestion.insertMany(qs, { ordered: false });
+  }
+
+  return { message: "Quiz saved successfully", quiz };
+};
+
+
+
+export const getTeacherQuizPerformance = async (teacherId, query = {}) => {
+  const { month, class_id, subject } = query;
+  const quizFilter = { created_by: new mongoose.Types.ObjectId(teacherId), is_deleted: false };
+  if (class_id) quizFilter.class_id = new mongoose.Types.ObjectId(class_id);
+  if (subject) quizFilter.subject = subject;
+
+  const quizzes = await Quiz.find(quizFilter).select('_id').lean();
+  const quizIds = quizzes.map(q => q._id);
+
+  const match = { quiz_id: { $in: quizIds } };
+
+  if (month) {
+    const [year, m] = month.split("-");
+    const from = new Date(`${year}-${m}-01`);
+    const to = new Date(from);
+    to.setMonth(to.getMonth() + 1);
+    match.submitted_at = { $gte: from, $lt: to };
+  }
+
+  const submissionsRaw = await QuizSubmission.find(match)
+    .populate("user_id", "full_name first_name last_name email")
+    .populate("quiz_id", "title subject")
+    .lean();
+
+  const submissions = submissionsRaw.map((sub) => {
+    const percent = sub.max_score > 0
+      ? Number(((sub.total_score / sub.max_score) * 100).toFixed(2))
+      : sub.total_questions > 0
+      ? Number(((sub.correct_answers / sub.total_questions) * 100).toFixed(2))
+      : 0;
+    
+    const user = sub.user_id || {};
+    const name = user.full_name || (user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.email) || "N/A";
+
+    return {
+      id: sub._id,
+      studentId: user._id?.toString(),
+      studentName: name,
+      paperTitle: sub.quiz_id?.title || "Untitled",
+      subject: sub.quiz_id?.subject || "Unknown",
+      score: sub.total_score,
+      maxScore: sub.max_score,
+      percent,
+      timeSpent: Math.round((sub.time_spent || 0) / 60),
+      date: sub.submitted_at,
+    };
+  });
+
+  const avgPercent = submissions.length ? submissions.reduce((acc, cur) => acc + cur.percent, 0) / submissions.length : 0;
+  return { total_attempts: submissions.length, average_percent: Number(avgPercent.toFixed(2)), submissions };
+};
+
+export const getAdminQuizPerformance = async (query = {}) => {
+  const { month, class_id, subject } = query;
+  
+  let match = {};
+  
+  if (class_id || subject) {
+      const quizFilter = { is_deleted: false };
+      if (class_id) quizFilter.class_id = new mongoose.Types.ObjectId(class_id);
+      if (subject) quizFilter.subject = subject;
+      const quizzes = await Quiz.find(quizFilter).select('_id').lean();
+      match.quiz_id = { $in: quizzes.map(q => q._id) };
+  }
+
+  if (month) {
+    const [year, m] = month.split("-");
+    const from = new Date(`${year}-${m}-01`);
+    const to = new Date(from);
+    to.setMonth(to.getMonth() + 1);
+    match.submitted_at = { $gte: from, $lt: to };
+  }
+
+  const submissionsRaw = await QuizSubmission.find(match)
+    .populate("user_id", "full_name first_name last_name email")
+    .populate("quiz_id", "title subject")
+    .lean();
+
+  const submissions = submissionsRaw.map((sub) => {
+    const percent = sub.max_score > 0
+      ? Number(((sub.total_score / sub.max_score) * 100).toFixed(2))
+      : sub.total_questions > 0
+      ? Number(((sub.correct_answers / sub.total_questions) * 100).toFixed(2))
+      : 0;
+    
+    const user = sub.user_id || {};
+    const name = user.full_name || (user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user.email) || "N/A";
+
+    return {
+      id: sub._id,
+      studentId: user._id?.toString(),
+      studentName: name,
+      paperTitle: sub.quiz_id?.title || "Untitled",
+      subject: sub.quiz_id?.subject || "Unknown",
+      score: sub.total_score,
+      maxScore: sub.max_score,
+      percent,
+      timeSpent: Math.round((sub.time_spent || 0) / 60),
+      date: sub.submitted_at,
+    };
+  });
+
+  const avgPercent = submissions.length ? submissions.reduce((acc, cur) => acc + cur.percent, 0) / submissions.length : 0;
+  return { total_attempts: submissions.length, average_percent: Number(avgPercent.toFixed(2)), submissions };
+};
+
+export const getTeacherUserPerformance = async (userId) => {
+    return getUserQuizPerformance({ user_id: userId, month: null });
+};

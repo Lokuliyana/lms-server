@@ -12,7 +12,7 @@ const connectDB = async () => {
             console.warn('MONGO_URI is not set. Skipping DB connection for now.');
             return;
         }
-        const conn = await mongoose_1.default.connect(env_1.config.mongoUri);
+        const conn = await mongoose_1.default.connect(env_1.config.mongoUri, { maxPoolSize: 50, wtimeoutMS: 2500, serverSelectionTimeoutMS: 5000 });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
     }
     catch (error) {

@@ -1,6 +1,7 @@
 export interface CheckoutParams {
-  classId: string;
-  monthKey: string;
+  classId?: string;
+  monthKey?: string;
+  productId?: string;
   userId: string;
   amount: number;
   currency: string;
@@ -9,9 +10,10 @@ export interface CheckoutParams {
 export interface WebhookResult {
   success: boolean;
   transactionId: string;
-  monthKey: string;
+  monthKey?: string;
   userId: string;
-  classId: string;
+  classId?: string;
+  productId?: string;
 }
 
 export interface PaymentProvider {

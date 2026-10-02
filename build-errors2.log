@@ -1,0 +1,168 @@
+
+> lms-server@1.0.0 build
+> tsc
+
+src/controllers/payments/paymentController.ts(25,7): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Type 'string' is not assignable to type 'RegExp | "manual" | "stripe" | "payhere"'.
+src/controllers/payments/paymentController.ts(38,61): error TS18047: 'transaction' is possibly 'null'.
+src/scripts/seedData.ts(27,58): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'description' does not exist in type '{ name?: string | RegExp; is_system_role?: boolean; client_id?: ObjectIdQueryTypeCasting; createdAt?: DateQueryTypeCasting; updatedAt?: DateQueryTypeCasting; _id?: ObjectIdQueryTypeCasting; }'.
+src/scripts/seedData.ts(28,62): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'description' does not exist in type '{ name?: string | RegExp; is_system_role?: boolean; client_id?: ObjectIdQueryTypeCasting; createdAt?: DateQueryTypeCasting; updatedAt?: DateQueryTypeCasting; _id?: ObjectIdQueryTypeCasting; }'.
+src/scripts/seedData.ts(29,62): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'description' does not exist in type '{ name?: string | RegExp; is_system_role?: boolean; client_id?: ObjectIdQueryTypeCasting; createdAt?: DateQueryTypeCasting; updatedAt?: DateQueryTypeCasting; _id?: ObjectIdQueryTypeCasting; }'.
+src/scripts/seedData.ts(38,7): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'role' does not exist in type '{ first_name?: string | RegExp; last_name?: string | RegExp; email?: string | RegExp; phone?: string | RegExp; password_hash?: string | RegExp; ... 5 more ...; _id?: ObjectIdQueryTypeCasting; }'.
+src/scripts/seedData.ts(39,18): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(47,7): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'role' does not exist in type '{ first_name?: string | RegExp; last_name?: string | RegExp; email?: string | RegExp; phone?: string | RegExp; password_hash?: string | RegExp; ... 5 more ...; _id?: ObjectIdQueryTypeCasting; }'.
+src/scripts/seedData.ts(48,18): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(56,7): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'role' does not exist in type '{ first_name?: string | RegExp; last_name?: string | RegExp; email?: string | RegExp; phone?: string | RegExp; password_hash?: string | RegExp; ... 5 more ...; _id?: ObjectIdQueryTypeCasting; }'.
+src/scripts/seedData.ts(57,18): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(66,19): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(67,7): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'tutor' does not exist in type '{ title?: string | RegExp; description?: string | RegExp; batches?: { batch_name?: string; day?: string; start?: string; end?: string; }[] | ({ batch_name?: string; day?: string; start?: string; end?: string; } | { ...; } | { ...; })[] | ({ ...; } | { ...; })[]; ... 76 more ...; validateSync?: { ...; }; }'.
+src/scripts/seedData.ts(67,14): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(69,27): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(78,19): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(79,7): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'tutor' does not exist in type '{ title?: string | RegExp; description?: string | RegExp; batches?: { batch_name?: string; day?: string; start?: string; end?: string; }[] | ({ batch_name?: string; day?: string; start?: string; end?: string; } | { ...; } | { ...; })[] | ({ ...; } | { ...; })[]; ... 76 more ...; validateSync?: { ...; }; }'.
+src/scripts/seedData.ts(79,14): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(90,24): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'grade' does not exist in type '{ type?: RegExp | "quiz" | "challenge"; version?: number; title?: string | RegExp; is_deleted?: boolean; created_by?: ObjectIdQueryTypeCasting; ... 11 more ...; _id?: ObjectIdQueryTypeCasting; }'.
+src/scripts/seedData.ts(91,19): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(92,17): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(94,7): error TS1117: An object literal cannot have multiple properties with the same name.
+src/scripts/seedData.ts(100,27): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'grade' does not exist in type '{ type?: RegExp | "quiz" | "challenge"; version?: number; title?: string | RegExp; is_deleted?: boolean; created_by?: ObjectIdQueryTypeCasting; ... 11 more ...; _id?: ObjectIdQueryTypeCasting; }'.
+src/scripts/seedData.ts(101,19): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(102,17): error TS2531: Object is possibly 'null'.
+src/scripts/seedData.ts(104,7): error TS1117: An object literal cannot have multiple properties with the same name.
+src/services/assessmentService.ts(15,18): error TS2300: Duplicate identifier 'd'.
+src/services/assessmentService.ts(16,9): error TS2300: Duplicate identifier 'd'.
+src/services/assessmentService.ts(22,19): error TS2300: Duplicate identifier 'd'.
+src/services/assessmentService.ts(23,9): error TS2300: Duplicate identifier 'd'.
+src/services/assessmentService.ts(210,9): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(filter: _QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>, update: UpdateWithAggregationPipeline | UpdateQuery<...>, options?: UpdateOptions & MongooseUpdateQueryOptions<...>): Query<...>', gave the following error.
+    Argument of type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; } | { window: string; window_key: string; scope_type: string; subject: any; scope_id?: undefined; user_id: any; } | { ...; }' is not assignable to parameter of type '_QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>'.
+      Type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; }' is not assignable to type '_QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>'.
+        Types of property 'scope_type' are incompatible.
+          Type 'string' is not assignable to type 'StrictCondition<ApplyBasicQueryCasting<NonNullable<"global" | "subject" | "quiz" | "class">>>'.
+  Overload 2 of 2, '(filter: Query<any, any, {}, unknown, "find", Record<string, never>>, update: UpdateWithAggregationPipeline | UpdateQuery<{ user_id: ObjectId; ... 15 more ...; last_attempt_at?: NativeDate; } & DefaultTimestampProps>, options?: UpdateOptions & MongooseUpdateQueryOptions<...>): Query<...>', gave the following error.
+    Argument of type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; } | { window: string; window_key: string; scope_type: string; subject: any; scope_id?: undefined; user_id: any; } | { ...; }' is not assignable to parameter of type 'Query<any, any, {}, unknown, "find", Record<string, never>>'.
+      Type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; }' is missing the following properties from type 'Query<any, any, {}, unknown, "find", Record<string, never>>': _mongooseOptions, exec, $where, all, and 94 more.
+src/services/assessmentService.ts(219,49): error TS2769: No overload matches this call.
+  Overload 1 of 9, '(filter?: _QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>, projection?: ProjectionType<...>, options?: QueryOptions<...> & Abortable): Query<...>', gave the following error.
+    Argument of type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; } | { window: string; window_key: string; scope_type: string; subject: any; scope_id?: undefined; user_id: any; } | { ...; }' is not assignable to parameter of type '_QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>'.
+      Type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; }' is not assignable to type '_QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>'.
+        Types of property 'scope_type' are incompatible.
+          Type 'string' is not assignable to type 'StrictCondition<ApplyBasicQueryCasting<NonNullable<"global" | "subject" | "quiz" | "class">>>'.
+  Overload 2 of 9, '(filter?: Query<any, any, {}, unknown, "find", Record<string, never>>, projection?: ProjectionType<{ user_id: ObjectId; scope_type: "global" | "subject" | "quiz" | "class"; window: "lifetime" | ... 2 more ... | "season"; ... 13 more ...; last_attempt_at?: NativeDate; } & DefaultTimestampProps>, options?: QueryOptions<...> & Abortable): Query<...>', gave the following error.
+    Argument of type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; } | { window: string; window_key: string; scope_type: string; subject: any; scope_id?: undefined; user_id: any; } | { ...; }' is not assignable to parameter of type 'Query<any, any, {}, unknown, "find", Record<string, never>>'.
+      Type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; }' is missing the following properties from type 'Query<any, any, {}, unknown, "find", Record<string, never>>': _mongooseOptions, exec, $where, all, and 94 more.
+src/services/assessmentService.ts(226,39): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(filter: _QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>, update: UpdateWithAggregationPipeline | UpdateQuery<...>, options?: UpdateOptions & MongooseUpdateQueryOptions<...>): Query<...>', gave the following error.
+    Argument of type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; } | { window: string; window_key: string; scope_type: string; subject: any; scope_id?: undefined; user_id: any; } | { ...; }' is not assignable to parameter of type '_QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>'.
+      Type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; }' is not assignable to type '_QueryFilter<{ createdAt: NativeDate; updatedAt: NativeDate; user_id: ObjectId; subject: string; scope_type: NonNullable<"global" | "subject" | "quiz" | "class">; ... 13 more ...; generated_at: NativeDate; }>'.
+        Types of property 'scope_type' are incompatible.
+          Type 'string' is not assignable to type 'StrictCondition<ApplyBasicQueryCasting<NonNullable<"global" | "subject" | "quiz" | "class">>>'.
+  Overload 2 of 2, '(filter: Query<any, any, {}, unknown, "find", Record<string, never>>, update: UpdateWithAggregationPipeline | UpdateQuery<{ user_id: ObjectId; ... 15 more ...; last_attempt_at?: NativeDate; } & DefaultTimestampProps>, options?: UpdateOptions & MongooseUpdateQueryOptions<...>): Query<...>', gave the following error.
+    Argument of type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; } | { window: string; window_key: string; scope_type: string; subject: any; scope_id?: undefined; user_id: any; } | { ...; }' is not assignable to parameter of type 'Query<any, any, {}, unknown, "find", Record<string, never>>'.
+      Type '{ window: string; window_key: string; scope_type: string; subject?: undefined; scope_id?: undefined; user_id: any; }' is missing the following properties from type 'Query<any, any, {}, unknown, "find", Record<string, never>>': _mongooseOptions, exec, $where, all, and 94 more.
+src/services/assessmentService.ts(337,29): error TS2339: Property 'grade' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(383,18): error TS2339: Property 'formula' does not exist on type '{ type: "mcq" | "true-false" | "fill-blank" | "multiple-select" | "slider" | "drag-drop"; quiz_id: ObjectId; question: string; correct_answer: any; marks: number; image?: string; ... 4 more ...; dragItems?: { ...; }; } & { ...; } & { ...; } & Required<...>'.
+src/services/assessmentService.ts(405,16): error TS2339: Property 'max_score' does not exist on type 'Document<unknown, {}, { user_id: ObjectId; quiz_id: ObjectId; answers: DocumentArray<{ question_id: ObjectId; is_correct: boolean; score: number; time_ms: number; answer?: any; }, Subdocument<...> & { ...; }>; ... 10 more ...; ip_address?: string; }, { ...; }, DefaultSchemaOptions> & Omit<...> & HydratedDocumentOver...'.
+src/services/assessmentService.ts(407,49): error TS2339: Property 'max_score' does not exist on type 'Document<unknown, {}, { user_id: ObjectId; quiz_id: ObjectId; answers: DocumentArray<{ question_id: ObjectId; is_correct: boolean; score: number; time_ms: number; answer?: any; }, Subdocument<...> & { ...; }>; ... 10 more ...; ip_address?: string; }, { ...; }, DefaultSchemaOptions> & Omit<...> & HydratedDocumentOver...'.
+src/services/assessmentService.ts(421,53): error TS2339: Property 'title' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(422,56): error TS2339: Property 'subject' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(424,26): error TS2339: Property 'max_score' does not exist on type 'Document<unknown, {}, { user_id: ObjectId; quiz_id: ObjectId; answers: DocumentArray<{ question_id: ObjectId; is_correct: boolean; score: number; time_ms: number; answer?: any; }, Subdocument<...> & { ...; }>; ... 10 more ...; ip_address?: string; }, { ...; }, DefaultSchemaOptions> & Omit<...> & HydratedDocumentOver...'.
+src/services/assessmentService.ts(451,9): error TS2339: Property 'code' does not exist on type 'Error'.
+src/services/assessmentService.ts(492,7): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Object literal may only specify known properties, and 'max_score' does not exist in type '{ user_id?: ObjectIdQueryTypeCasting; quiz_id?: ObjectIdQueryTypeCasting; answers?: any[] | { question_id?: ObjectId; is_correct?: boolean; score?: number; time_ms?: number; answer?: any; }[]; ... 11 more ...; _id?: ObjectIdQueryTypeCasting; }'.
+src/services/assessmentService.ts(506,18): error TS18047: 'submission' is possibly 'null'.
+src/services/assessmentService.ts(507,15): error TS18047: 'submission' is possibly 'null'.
+src/services/assessmentService.ts(511,32): error TS18047: 'submission' is possibly 'null'.
+src/services/assessmentService.ts(523,23): error TS18047: 'submission' is possibly 'null'.
+src/services/assessmentService.ts(630,41): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(pipeline?: PipelineStage[], options?: AggregateOptions): Aggregate<any[]>', gave the following error.
+    Argument of type '({ $match: { quiz_id: ObjectId; attempt_number: number; }; $addFields?: undefined; $sort?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; } | ... 7 more ... | { ...; })[]' is not assignable to parameter of type 'PipelineStage[]'.
+      Type '{ $match: { quiz_id: ObjectId; attempt_number: number; }; $addFields?: undefined; $sort?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; } | ... 7 more ... | { ...; }' is not assignable to type 'PipelineStage'.
+        Type '{ $sort: { percent: number; submitted_at: number; }; $match?: undefined; $addFields?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; }' is not assignable to type 'PipelineStage'.
+          Type '{ $sort: { percent: number; submitted_at: number; }; $match?: undefined; $addFields?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; }' is not assignable to type 'Unwind'.
+            Property '$unwind' is optional in type '{ $sort: { percent: number; submitted_at: number; }; $match?: undefined; $addFields?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; }' but required in type 'Unwind'.
+  Overload 2 of 2, '(pipeline: PipelineStage[]): Aggregate<any[]>', gave the following error.
+    Argument of type '({ $match: { quiz_id: ObjectId; attempt_number: number; }; $addFields?: undefined; $sort?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; } | ... 7 more ... | { ...; })[]' is not assignable to parameter of type 'PipelineStage[]'.
+      Type '{ $match: { quiz_id: ObjectId; attempt_number: number; }; $addFields?: undefined; $sort?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; } | ... 7 more ... | { ...; }' is not assignable to type 'PipelineStage'.
+        Type '{ $sort: { percent: number; submitted_at: number; }; $match?: undefined; $addFields?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; }' is not assignable to type 'PipelineStage'.
+          Type '{ $sort: { percent: number; submitted_at: number; }; $match?: undefined; $addFields?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; }' is not assignable to type 'Unwind'.
+            Property '$unwind' is optional in type '{ $sort: { percent: number; submitted_at: number; }; $match?: undefined; $addFields?: undefined; $limit?: undefined; $lookup?: undefined; $unwind?: undefined; $project?: undefined; }' but required in type 'Unwind'.
+src/services/assessmentService.ts(644,11): error TS2339: Property 'submitted_at' does not exist on type '{ user_id: ObjectId; }'.
+src/services/assessmentService.ts(654,11): error TS2339: Property 'max_score' does not exist on type '{ user_id: ObjectId; quiz_id: ObjectId; answers: DocumentArray<{ question_id: ObjectId; is_correct: boolean; score: number; time_ms: number; answer?: any; }, Subdocument<ObjectId, unknown, { ...; }, {}, {}> & { ...; }>; ... 10 more ...; ip_address?: string; } & { ...; } & { ...; } & Required<...>'.
+src/services/assessmentService.ts(655,42): error TS2339: Property 'max_score' does not exist on type '{ user_id: ObjectId; quiz_id: ObjectId; answers: DocumentArray<{ question_id: ObjectId; is_correct: boolean; score: number; time_ms: number; answer?: any; }, Subdocument<ObjectId, unknown, { ...; }, {}, {}> & { ...; }>; ... 10 more ...; ip_address?: string; } & { ...; } & { ...; } & Required<...>'.
+src/services/assessmentService.ts(662,33): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(663,32): error TS2339: Property 'title' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(664,29): error TS2339: Property 'subject' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(666,21): error TS2339: Property 'max_score' does not exist on type '{ user_id: ObjectId; quiz_id: ObjectId; answers: DocumentArray<{ question_id: ObjectId; is_correct: boolean; score: number; time_ms: number; answer?: any; }, Subdocument<ObjectId, unknown, { ...; }, {}, {}> & { ...; }>; ... 10 more ...; ip_address?: string; } & { ...; } & { ...; } & Required<...>'.
+src/services/assessmentService.ts(1069,16): error TS2339: Property 'full_name' does not exist on type '{ first_name: string; last_name: string; email: string; phone: string; password_hash: string; is_verified: boolean; role_ids: ObjectId[]; avatar?: string; createdAt: NativeDate; updatedAt: NativeDate; } & { ...; } & { ...; } & Required<...>'.
+src/services/assessmentService.ts(1085,26): error TS2339: Property 'full_name' does not exist on type '{ first_name: string; last_name: string; email: string; phone: string; password_hash: string; is_verified: boolean; role_ids: ObjectId[]; avatar?: string; createdAt: NativeDate; updatedAt: NativeDate; } & { ...; } & { ...; } & Required<...>'.
+src/services/assessmentService.ts(1086,28): error TS2339: Property 'full_name' does not exist on type '{ first_name: string; last_name: string; email: string; phone: string; password_hash: string; is_verified: boolean; role_ids: ObjectId[]; avatar?: string; createdAt: NativeDate; updatedAt: NativeDate; } & { ...; } & { ...; } & Required<...>'.
+src/services/assessmentService.ts(1104,21): error TS2339: Property 'status' does not exist on type '{ $or: ({ p1_id: any; p2_id?: undefined; } | { p2_id: any; p1_id?: undefined; })[]; }'.
+src/services/assessmentService.ts(1271,11): error TS2304: Cannot find name 'UserQuizStats'.
+src/services/assessmentService.ts(1272,11): error TS2304: Cannot find name 'UserQuizStats'.
+src/services/assessmentService.ts(1274,11): error TS2304: Cannot find name 'UserQuizStats'.
+src/services/assessmentService.ts(1275,11): error TS2304: Cannot find name 'UserQuizStats'.
+src/services/assessmentService.ts(1313,13): error TS2304: Cannot find name 'UserQuizStats'.
+src/services/assessmentService.ts(1321,13): error TS2304: Cannot find name 'UserQuizStats'.
+src/services/assessmentService.ts(1332,9): error TS2304: Cannot find name 'UserQuizStats'.
+src/services/assessmentService.ts(1339,9): error TS2304: Cannot find name 'UserQuizStats'.
+src/services/assessmentService.ts(1374,30): error TS2339: Property 'title' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1383,18): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1384,18): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1389,15): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1392,15): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1404,16): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1405,16): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1412,14): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1413,14): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1421,14): error TS2339: Property 'email' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1427,14): error TS2339: Property 'email' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1449,40): error TS2339: Property 'subject' does not exist on type '{ scope_type: any; window: any; }'.
+src/services/assessmentService.ts(1451,12): error TS2339: Property 'scope_id' does not exist on type '{ scope_type: any; window: any; }'.
+src/services/assessmentService.ts(1460,12): error TS2339: Property 'window_key' does not exist on type '{ scope_type: any; window: any; }'.
+src/services/assessmentService.ts(1460,59): error TS2339: Property 'windowKey' does not exist on type 'never'.
+src/services/assessmentService.ts(1462,12): error TS2339: Property 'window_key' does not exist on type '{ scope_type: any; window: any; }'.
+src/services/assessmentService.ts(1464,37): error TS2339: Property 'window_key' does not exist on type '{ scope_type: any; window: any; }'.
+src/services/assessmentService.ts(1479,34): error TS2345: Argument of type '{ scope_type: any; scope_id: any; subject: any; window: any; window_key: any; }' is not assignable to parameter of type '{ scope_type: any; scope_id: any; subject: any; window: any; window_key: any; when: any; }'.
+  Property 'when' is missing in type '{ scope_type: any; scope_id: any; subject: any; window: any; window_key: any; }' but required in type '{ scope_type: any; scope_id: any; subject: any; window: any; window_key: any; when: any; }'.
+src/services/assessmentService.ts(1498,26): error TS2339: Property 'window_key' does not exist on type '{ scope_type: any; window: any; }'.
+src/services/assessmentService.ts(1504,24): error TS2339: Property 'full_name' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1505,26): error TS2339: Property 'avatar' does not exist on type 'ObjectId'.
+src/services/assessmentService.ts(1517,34): error TS2345: Argument of type '{ [x: string]: any; }' is not assignable to parameter of type '{ scope_type: any; scope_id: any; subject: any; window: any; window_key: any; when: any; }'.
+  Type '{ [x: string]: any; }' is missing the following properties from type '{ scope_type: any; scope_id: any; subject: any; window: any; window_key: any; when: any; }': scope_type, scope_id, subject, window, and 2 more.
+src/services/assessmentService.ts(1571,27): error TS2304: Cannot find name 'StudentProfile'.
+src/services/assessmentService.ts(1766,31): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(pipeline?: PipelineStage[], options?: AggregateOptions): Aggregate<any[]>', gave the following error.
+    Argument of type '({ $match: { role: string; _id: { $ne: ObjectId; }; }; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $sort?: undefined; $limit?: undefined; } | { $lookup: { ...; }; ... 5 more ...; $limit?: undefined; } | ... 8 more ... | { ...; })[]' is not assignable to parameter of type 'PipelineStage[]'.
+      Type '{ $match: { role: string; _id: { $ne: ObjectId; }; }; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $sort?: undefined; $limit?: undefined; } | { $lookup: { ...; }; ... 5 more ...; $limit?: undefined; } | ... 8 more ... | { ...; }' is not assignable to type 'PipelineStage'.
+        Type '{ $sort: { "metrics.score": number; "metrics.duels": number; "metrics.lastPlayed": number; full_name: number; }; $match?: undefined; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $limit?: undefined; }' is not assignable to type 'PipelineStage'.
+          Type '{ $sort: { "metrics.score": number; "metrics.duels": number; "metrics.lastPlayed": number; full_name: number; }; $match?: undefined; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $limit?: undefined; }' is not assignable to type 'Unwind'.
+            Property '$unwind' is optional in type '{ $sort: { "metrics.score": number; "metrics.duels": number; "metrics.lastPlayed": number; full_name: number; }; $match?: undefined; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $limit?: undefined; }' but required in type 'Unwind'.
+  Overload 2 of 2, '(pipeline: PipelineStage[]): Aggregate<any[]>', gave the following error.
+    Argument of type '({ $match: { role: string; _id: { $ne: ObjectId; }; }; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $sort?: undefined; $limit?: undefined; } | { $lookup: { ...; }; ... 5 more ...; $limit?: undefined; } | ... 8 more ... | { ...; })[]' is not assignable to parameter of type 'PipelineStage[]'.
+      Type '{ $match: { role: string; _id: { $ne: ObjectId; }; }; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $sort?: undefined; $limit?: undefined; } | { $lookup: { ...; }; ... 5 more ...; $limit?: undefined; } | ... 8 more ... | { ...; }' is not assignable to type 'PipelineStage'.
+        Type '{ $sort: { "metrics.score": number; "metrics.duels": number; "metrics.lastPlayed": number; full_name: number; }; $match?: undefined; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $limit?: undefined; }' is not assignable to type 'PipelineStage'.
+          Type '{ $sort: { "metrics.score": number; "metrics.duels": number; "metrics.lastPlayed": number; full_name: number; }; $match?: undefined; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $limit?: undefined; }' is not assignable to type 'Unwind'.
+            Property '$unwind' is optional in type '{ $sort: { "metrics.score": number; "metrics.duels": number; "metrics.lastPlayed": number; full_name: number; }; $match?: undefined; $lookup?: undefined; $unwind?: undefined; $addFields?: undefined; $project?: undefined; $limit?: undefined; }' but required in type 'Unwind'.

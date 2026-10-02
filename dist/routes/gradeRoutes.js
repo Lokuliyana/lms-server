@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middlewares/auth");
+const gradeController_1 = require("../controllers/gradeController");
+const router = (0, express_1.Router)();
+router.post("/", (0, auth_1.requirePermission)("grades.record"), gradeController_1.recordExamResults);
+router.put("/:id", (0, auth_1.requirePermission)("grades.record"), gradeController_1.updateExamResults);
+router.put("/:id/publish", (0, auth_1.requirePermission)("grades.publish"), gradeController_1.togglePublishExamResults);
+router.get("/class/:classId", (0, auth_1.requirePermission)("grades.view"), gradeController_1.getClassExamResults);
+router.get("/export/:id", (0, auth_1.requirePermission)("grades.exportReport"), gradeController_1.exportClassExamResults);
+router.get("/my", auth_1.authenticate, gradeController_1.getMyExamResults);
+exports.default = router;

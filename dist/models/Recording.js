@@ -42,7 +42,7 @@ const recordingSchema = new mongoose_1.Schema({
     driveFileId: { type: String },
     provider: {
         type: String,
-        enum: ['drive', 'b2', 'processing', 'youtube'],
+        enum: ['drive', 'b2', 'processing', 'youtube', 'local'],
         default: 'drive'
     },
     storageKey: { type: String },
@@ -51,6 +51,7 @@ const recordingSchema = new mongoose_1.Schema({
     zoom_recording_id: { type: String },
     uploaded_at: { type: Date, default: Date.now },
     is_expired: { type: Boolean, default: false },
+    is_deleted: { type: Boolean, default: false },
     session_date: { type: Date },
     month_key: { type: String },
     batch_name: { type: String },

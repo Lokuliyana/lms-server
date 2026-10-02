@@ -53,8 +53,11 @@ export const handleApplication = async (applicationId: string, status: 'approved
   const studentId = application.user_id;
 
   if (status === 'rejected') {
-    await ClassApplication.findByIdAndDelete(applicationId);
-    return { message: "Application rejected and deleted" };
+    application.status = 'rejected';
+    application.approved_by = (approverUserId as any) || null;
+    application.approved_at = new Date();
+    await application.save();
+    return { message: "Application rejected", status: 'rejected', application };
   }
 
   if (status === 'approved') {
@@ -62,6 +65,14 @@ export const handleApplication = async (applicationId: string, status: 'approved
 
     // idempotent membership
     await Class.updateOne({ _id: classId }, { $addToSet: { enrolled_students: studentId } });
+    
+    // Auto-create ClassEnrollment as unified source of truth
+    const { ClassEnrollment } = await import('../models/ClassEnrollment');
+    await ClassEnrollment.updateOne(
+      { classId, userId: studentId },
+      { $setOnInsert: { classId, userId: studentId, status: 'active', enrolledAt: new Date() } },
+      { upsert: true }
+    );
     
     // Check if user has student role
     let studentRole = await Role.findOne({ name: 'Student' });
@@ -85,9 +96,29 @@ export const handleApplication = async (applicationId: string, status: 'approved
       { upsert: true }
     );
 
-    await ClassApplication.findByIdAndDelete(applicationId);
+    // Non-destructive: Persist approval status and audit trails instead of deleting
+    application.status = 'approved';
+    application.approved_by = (approverUserId as any) || null;
+    application.approved_at = new Date();
+    await application.save();
 
-    return { message: "Application approved and access granted", month_key: mkey };
+    // Delivery order fulfillment hook if required
+    const classDoc = await Class.findById(classId);
+    if (classDoc?.has_delivery_pack || (application as any).requires_delivery) {
+      const { DeliveryOrder } = await import('../models/DeliveryOrder');
+      await DeliveryOrder.create({
+        order_id: `DEL-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`,
+        student_id: studentId,
+        class_id: classDoc._id,
+        month_key: mkey,
+        delivery_method: (application as any).delivery_method || 'Courier',
+        shipping_address: (application as any).shipping_address || 'Profile Address',
+        status: 'pending_processing',
+        created_at: new Date(),
+      });
+    }
+
+    return { message: "Application approved and access granted", month_key: mkey, application };
   }
 
   throw new Error("Invalid status provided");

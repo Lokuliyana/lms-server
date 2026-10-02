@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import { Class } from '../models/Class';
 import { Recording } from '../models/Recording';
@@ -6,6 +7,8 @@ import { ClassEntitlement } from '../models/ClassEntitlement';
 import { hasActiveEntitlement } from '../services/entitlementService';
 import { getProviderAndId, drivePreviewUrl } from '../utils/driveHelpers';
 import { monthKey } from '../utils/monthKey';
+
+import * as recordingService from '../services/recordingService';
 
 const TICKET_SECRET = process.env.TICKET_SECRET || process.env.JWT_SECRET || "dev-secret";
 const DRIVE_ID_RE = /^[a-zA-Z0-9_-]{10,}$/;
@@ -51,96 +54,37 @@ async function assertAccess({ userId, role, fileId }: { userId: string, role: st
 
 export const createRecording = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { class_id, title, driveUrl, session_date, batch_name } = req.body;
-    if (!class_id || !title || !driveUrl || !session_date) {
-      res.status(400).json({ message: "class_id, title, driveUrl, session_date are required." });
-      return;
-    }
-
-    const result = getProviderAndId(driveUrl);
-    if (!result) {
-      res.status(400).json({ message: "Invalid video link (must be Google Drive or YouTube)." });
-      return;
-    }
-    const { id: fileId, provider } = result;
-
-    const dt = new Date(session_date);
-    if (isNaN(dt.getTime())) {
-      res.status(400).json({ message: "Invalid session_date format." });
-      return;
-    }
-    const mk = monthKey(dt, "Asia/Colombo");
-
-    const doc = await Recording.create({
-      class_id,
-      title: String(title).trim(),
-      driveUrl: String(driveUrl).trim(),
-      driveFileId: fileId,
-      video_url: fileId,
-      provider: provider as any,
-      session_date: dt,
-      month_key: mk,
-      batch_name,
-    });
-
+    const doc = await recordingService.createRecording(req.body);
     res.status(201).json({ message: "Recording created.", recording: doc });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Create error:", err);
-    res.status(500).json({ message: "Failed to create recording." });
+    res.status(err.status || 500).json({ message: err.message || "Failed to create recording." });
   }
 };
 
 export const updateRecording = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { title, driveUrl, session_date, batch_name, is_expired } = req.body;
-    const rec = await Recording.findById(id);
+    const rec = await recordingService.updateRecording(String(id), req.body);
     if (!rec) {
       res.status(404).json({ message: "Recording not found." });
       return;
     }
-
-    if (typeof title === "string" && title.trim()) rec.title = title.trim();
-    if (typeof driveUrl === "string" && driveUrl.trim()) {
-      const result = getProviderAndId(driveUrl);
-      if (!result) {
-        res.status(400).json({ message: "Invalid video link." });
-        return;
-      }
-      rec.driveUrl = driveUrl.trim();
-      rec.driveFileId = result.id;
-      rec.video_url = result.id;
-      rec.provider = result.provider as any;
-    }
-    if (typeof batch_name === "string") rec.batch_name = batch_name;
-    if (typeof is_expired === "boolean") rec.is_expired = is_expired;
-    if (typeof session_date !== "undefined") {
-      const dt = new Date(session_date);
-      if (isNaN(dt.getTime())) {
-        res.status(400).json({ message: "Invalid session_date format." });
-        return;
-      }
-      rec.session_date = dt;
-      rec.month_key = monthKey(dt, "Asia/Colombo");
-    }
-
-    await rec.save();
     res.status(200).json({ message: "Recording updated.", recording: rec });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Update error:", err);
-    res.status(500).json({ message: "Failed to update recording." });
+    res.status(err.status || 500).json({ message: err.message || "Failed to update recording." });
   }
 };
 
 export const deleteRecording = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const rec = await Recording.findById(id);
+    const rec = await recordingService.deleteRecording(String(id));
     if (!rec) {
       res.status(404).json({ message: "Recording not found." });
       return;
     }
-    await Recording.deleteOne({ _id: id });
     res.status(200).json({ message: "Recording deleted." });
   } catch (err) {
     console.error("Delete error:", err);
@@ -151,13 +95,11 @@ export const deleteRecording = async (req: Request, res: Response): Promise<void
 export const expireRecording = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const rec = await Recording.findById(id);
+    const rec = await recordingService.expireRecording(String(id));
     if (!rec) {
       res.status(404).json({ message: "Recording not found." });
       return;
     }
-    rec.is_expired = true;
-    await rec.save();
     res.status(200).json({ message: "Recording expired." });
   } catch (err) {
     console.error("Expire error:", err);
@@ -165,16 +107,59 @@ export const expireRecording = async (req: Request, res: Response): Promise<void
   }
 };
 
+export const getRecordingsByClass = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawClassId = req.params.classId || req.params.id;
+    if (!rawClassId) {
+      res.status(400).json({ message: "classId is required" });
+      return;
+    }
+    const recordings = await recordingService.getRecordingsByClass(String(rawClassId));
+    res.status(200).json({ success: true, recordings, data: recordings });
+  } catch (err: any) {
+    console.error("getRecordingsByClass error:", err);
+    res.status(500).json({ message: "Failed to fetch class recordings" });
+  }
+};
+
 export const getRecordingById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const doc = await Recording.findById(id).lean();
+    const rawId = req.params.id;
+    if (!rawId || !mongoose.Types.ObjectId.isValid(String(rawId))) {
+      res.status(400).json({ message: "Invalid recording ID" });
+      return;
+    }
+    const doc: any = await recordingService.getRecordingById(String(rawId));
     if (!doc) {
       res.status(404).json({ message: "Recording not found" });
       return;
     }
-    res.json({ recording: doc });
-  } catch (e) {
+
+    const classData: any = doc.class_id;
+    const user = (req as any).user;
+    const role = user?.role || 'student';
+    const userId = (user?._id || user?.userId || '').toString();
+
+    const isStaff = ['teacher', 'admin', 'moderator'].includes(role) ||
+      user?.permissions?.includes('recordings.manage') ||
+      user?.permissions?.includes('classes.update') ||
+      user?.permissions?.includes('recordings.read');
+
+    if (user && !isStaff) {
+      const enrolledArray = classData?.enrolled_students || [];
+      const isEnrolled = enrolledArray.some((s: any) => String(s?._id || s) === userId);
+      if (!isEnrolled) {
+        const { ClassEnrollment } = await import('../models/ClassEnrollment');
+        const hasEnrollment = await ClassEnrollment.exists({ classId: classData?._id || doc.class_id, userId, status: 'active' });
+        if (!hasEnrollment) {
+          res.status(403).json({ message: "You are not enrolled in this class." });
+          return;
+        }
+      }
+    }
+
+    res.json({ success: true, recording: doc, data: doc });
+  } catch (e: any) {
     console.error("getRecordingById error:", e);
     res.status(500).json({ message: "Failed to fetch recording" });
   }
@@ -183,7 +168,18 @@ export const getRecordingById = async (req: Request, res: Response): Promise<voi
 export const createPreviewTicketHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const { fileId } = req.body || {};
-    if (!DRIVE_ID_RE.test(fileId || "")) {
+    if (!fileId) {
+      res.status(400).json({ message: "Invalid fileId" });
+      return;
+    }
+
+    // Local / direct storage playback support
+    if (fileId.startsWith('/uploads') || fileId.startsWith('http://') || fileId.startsWith('https://')) {
+      res.json({ ticket: 'local', iframeSrc: fileId, url: fileId });
+      return;
+    }
+
+    if (!DRIVE_ID_RE.test(fileId)) {
       res.status(400).json({ message: "Invalid fileId" });
       return;
     }
@@ -203,7 +199,11 @@ export const createPreviewTicketHandler = async (req: Request, res: Response): P
       { expiresIn: "90s" }
     );
 
-    res.json({ ticket, iframeSrc: `/api/recordings/ticket/${ticket}` });
+    res.json({
+      ticket,
+      iframeSrc: `/api/recordings/ticket/${ticket}`,
+      url: `/api/recordings/ticket/${ticket}`,
+    });
   } catch (e: any) {
     const code = e.status || 500;
     console.error("createPreviewTicketHandler error:", e);
@@ -216,6 +216,11 @@ export const previewByTicketPublic = async (req: Request, res: Response): Promis
     const { ticket } = req.params;
     if (!ticket) {
       res.status(400).send("Bad request");
+      return;
+    }
+
+    if (ticket === 'local') {
+      res.status(400).send("Local files are served directly");
       return;
     }
 
@@ -237,3 +242,4 @@ export const previewByTicketPublic = async (req: Request, res: Response): Promis
     res.status(410).send("Link expired");
   }
 };
+

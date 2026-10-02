@@ -8,7 +8,10 @@
     "build": "tsc",
     "dev": "nodemon src/server.ts",
     "lint": "eslint src/**/*.ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "seed:permissions": "ts-node -e \"import('./src/scripts/seedPermissions').then(m => m.seedPermissionsAndRoles()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })\"",
+    "seed:all": "ts-node src/scripts/seedCompleteDatabase.ts",
+    "verify:db": "ts-node src/scripts/verifyCompleteDatabase.ts"
   },
   "keywords": [],
   "author": "",

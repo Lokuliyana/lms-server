@@ -1,4 +1,3 @@
-"use strict";
 // @ts-nocheck
 const { getDriveClient, getDriveFolderId } = require('./driveClient');
 function getDrive() {

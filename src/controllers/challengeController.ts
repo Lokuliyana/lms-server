@@ -34,13 +34,14 @@ export const createChallenge = async (req, res) => {
 // Optional accept (kept for parity; not required for async flow)
 export const acceptChallenge = async (req, res) => {
   try {
-    const { matchId } = req.params;
+    const matchId = req.params.matchId || req.body?.matchId;
     if (!matchId)
       return res.status(422).json({ message: "matchId param is required" });
 
+    const userId = req.user?.userId || req.user?._id?.toString();
     const match = await assessmentService.acceptChallenge({
       matchId,
-      userId: req.user.userId,
+      userId,
     });
 
     return res.status(200).json({ message: "Challenge accepted", match });
@@ -55,7 +56,7 @@ export const acceptChallenge = async (req, res) => {
 // Attach an existing submission to a match
 export const submitMatchAttempt = async (req, res) => {
   try {
-    const { matchId } = req.params;
+    const matchId = req.params.matchId || req.body?.matchId;
     const { submission_id } = req.body; // QuizSubmission _id
 
     if (!matchId)
@@ -63,9 +64,10 @@ export const submitMatchAttempt = async (req, res) => {
     if (!submission_id)
       return res.status(422).json({ message: "submission_id is required" });
 
+    const userId = req.user?.userId || req.user?._id?.toString();
     const match = await assessmentService.submitMatchAttempt({
       matchId,
-      userId: req.user.userId,
+      userId,
       submissionId: submission_id,
     });
 

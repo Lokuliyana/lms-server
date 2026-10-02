@@ -36,6 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Class = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const classSchema = new mongoose_1.Schema({
+    classId: { type: Number, unique: true, sparse: true, index: true },
+    class_code: { type: String, unique: true, sparse: true, index: true },
     title: { type: String, required: true },
     description: { type: String, required: true },
     batches: [
@@ -56,19 +58,47 @@ const classSchema = new mongoose_1.Schema({
         enum: ["special", "regular", "custom"],
         required: true,
     },
-    subject: { type: String, required: true },
-    grade: { type: String, required: true },
+    subject: { type: mongoose_1.Schema.Types.ObjectId, ref: "Subject", required: true },
+    grade: { type: mongoose_1.Schema.Types.ObjectId, ref: "Grade", required: true },
     price: { type: Number, required: true },
+    delivery_type: {
+        type: String,
+        enum: ['online_only', 'physical_tute', 'both'],
+        default: 'online_only'
+    },
+    institute_id: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'Institute',
+        default: null
+    },
+    physical_location: { type: String, default: '' },
+    has_delivery_pack: { type: Boolean, default: false },
+    delivery_fee: { type: Number, default: 0 },
     image: { type: String },
     zoom_meeting_id: { type: String },
     zoom_join_url: { type: String },
     zoom_start_url: { type: String },
     is_deleted: { type: Boolean, default: false },
     created_by: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
+    tutor: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
+    monthly_fee: { type: Number },
     quizzes: [{ type: mongoose_1.Schema.Types.ObjectId, ref: "Quiz" }],
     recordings: [{ type: mongoose_1.Schema.Types.ObjectId, ref: "Recording" }],
-    // Fix 2.1: Drop ClassEnrollment, use enrolled_students directly
+    currency: { type: String, default: "LKR" },
+    gateway_product_id: { type: String },
+    gateway_price_id: { type: String },
     enrolled_students: [{ type: mongoose_1.Schema.Types.ObjectId, ref: "User", index: true }],
     created_at: { type: Date, default: Date.now },
+});
+classSchema.index({ subject: 1, grade: 1, is_deleted: 1 });
+// Sequential enterprise identifier generator (e.g. classId: 1, 2, ... and class_code: CLS-0001, CLS-0002)
+classSchema.pre('save', async function () {
+    if (this.classId === undefined || this.classId === null) {
+        const lastClass = await mongoose_1.default.model('Class').findOne({ classId: { $ne: null } }).sort({ classId: -1 }).select('classId').lean();
+        this.classId = lastClass?.classId ? lastClass.classId + 1 : 1;
+    }
+    if (!this.class_code) {
+        this.class_code = `CLS-${String(this.classId).padStart(4, '0')}`;
+    }
 });
 exports.Class = mongoose_1.default.model("Class", classSchema);

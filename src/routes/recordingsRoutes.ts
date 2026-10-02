@@ -5,6 +5,7 @@ import {
   deleteRecording, 
   expireRecording, 
   getRecordingById, 
+  getRecordingsByClass,
   createPreviewTicketHandler, 
   previewByTicketPublic 
 } from "../controllers/recordingController";
@@ -20,7 +21,7 @@ router.post(
 
 router.put(
   "/:id",
-  requirePermission("recordings.update"),
+  requirePermission("recordings.create"),
   updateRecording
 );
 
@@ -32,7 +33,7 @@ router.delete(
 
 router.put(
   "/:id/expire",
-  requirePermission("recordings.update"),
+  requirePermission("recordings.create"),
   expireRecording
 );
 
@@ -42,8 +43,20 @@ router.post(
   createPreviewTicketHandler
 );
 
+router.post(
+  "/proxy-ticket",
+  requirePermission("recordings.read"),
+  createPreviewTicketHandler
+);
+
 // Stream via ticket (PUBLIC; no JWT)
 router.get('/ticket/:ticket', previewByTicketPublic);
+
+router.get(
+  "/class/:classId",
+  requirePermission("recordings.read"),
+  getRecordingsByClass
+);
 
 router.get(
   "/:id",
@@ -51,6 +64,5 @@ router.get(
   getRecordingById
 );
 
-// Note: Fix 3.6 says "DELETING the byte-proxy flow", so we do not include /proxy-ticket or /proxy/:fileId
-
 export default router;
+

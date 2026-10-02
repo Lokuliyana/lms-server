@@ -37,7 +37,7 @@ const express_1 = require("express");
 const classApplicationController = __importStar(require("../controllers/classApplicationController"));
 const auth_1 = require("../middlewares/auth");
 const router = (0, express_1.Router)();
-router.post('/', auth_1.authenticate, classApplicationController.applyForClass);
+router.post('/', (0, auth_1.requirePermission)('classes.apply'), classApplicationController.applyForClass);
 router.get('/', (0, auth_1.requirePermission)('classes.read'), classApplicationController.getApplications);
 router.post('/:id/handle', (0, auth_1.requirePermission)('classes.update'), classApplicationController.handleApplication);
 exports.default = router;
