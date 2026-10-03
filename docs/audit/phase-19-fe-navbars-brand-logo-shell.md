@@ -140,7 +140,7 @@ Phase 19 completes the audit of the visual shell and primary user interface chro
     <svg ... >...</svg>
   )}
   ```
-  - **Bug Rationale & Impact**: The developer attempted to filter out the default fallback `/images/logo.png`. However, the condition `!branding.assets.logoUrl.endsWith(".png")` blocks **any custom PNG logo** uploaded by an institution. If a tenant uploads `custom-logo.png`, the logo fails to display and renders the generic fallback SVG icon instead.
+  - **Bug Rationale & Impact**: The developer attempted to filter out the default fallback `/images/logo.svg`. However, the condition `!branding.assets.logoUrl.endsWith(".png")` blocks **any custom PNG logo** uploaded by an institution. If a tenant uploads `custom-logo.png`, the logo fails to display and renders the generic fallback SVG icon instead.
   - **Fix Required**: Compare against `DEFAULT_BRANDING.assets.logoUrl` instead of checking the `.png` file extension.
 
 ---
