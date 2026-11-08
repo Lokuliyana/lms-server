@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.usersController = void 0;
 const authService_1 = require("../services/authService");
 const User_1 = require("../models/User");
-const StudentProfile_1 = require("../models/StudentProfile");
 const mongoose_1 = __importDefault(require("mongoose"));
 exports.usersController = {
     async getAllUsers(req, res, next) {
@@ -48,14 +47,6 @@ exports.usersController = {
             }
             user.role_ids = role_ids;
             await user.save({ session });
-            // Fix 1.6: Orphaned/zombie profiles
-            // Role-change transaction deletes the prior profile document atomically.
-            const Role = mongoose_1.default.model('Role');
-            const newRoles = await Role.find({ _id: { $in: role_ids } }).session(session);
-            const isStudent = newRoles.some((r) => r.name === 'Student');
-            if (!isStudent) {
-                await StudentProfile_1.StudentProfile.deleteOne({ user_id: user._id }).session(session);
-            }
             await session.commitTransaction();
             res.status(200).json({ success: true, message: 'User roles updated' });
         }

@@ -69,6 +69,9 @@ router.get('/:id', auth_1.optionalAuth, classController.getClassById);
 router.put('/:id', (0, auth_1.requirePermission)('classes.update'), classController.updateClass);
 router.delete('/:id', (0, auth_1.requirePermission)('classes.delete'), classController.deleteClass);
 router.get('/:id/students', (0, auth_1.requirePermission)('classes.read'), classController.getEnrolledStudents);
+router.post('/:id/students/:studentId/revoke', (0, auth_1.requirePermission)('classes.update'), classController.revokeStudentAccess);
+router.get('/:id/candidates', (0, auth_1.requirePermission)('classes.read'), classController.getCandidateStudents);
+router.post('/:id/manual-enroll', (0, auth_1.requirePermission)('classes.update'), classController.manualEnrollStudents);
 // Assignment routes under a specific class
 router.post('/:id/assignments', (0, auth_1.requirePermission)('assignments.manage'), assignmentController.createAssignment);
 router.get('/:id/assignments', auth_1.authenticate, assignmentController.getAssignmentsByClass);

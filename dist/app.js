@@ -123,6 +123,7 @@ app.post('/admin/content', handleAdminContent);
 // Routes: Mount all routers under both `/api/*` and `/*`
 const routes = [
     ['/auth', authRoutes_1.authRoutes],
+    ['/user', usersRoutes_1.usersRoutes],
     ['/users', usersRoutes_1.usersRoutes],
     ['/permissions', permissionsRoutes_1.default],
     ['/classes', classRoutes_1.default],

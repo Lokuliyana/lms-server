@@ -18,6 +18,13 @@ userSchema.virtual('computedName').get(function() {
   return this.email || '—';
 });
 
+userSchema.virtual('student_profile', {
+  ref: 'StudentProfile',
+  localField: '_id',
+  foreignField: 'user_id',
+  justOne: true,
+});
+
 // Fix 1.9: Global toJSON transform strips password_hash automatically
 userSchema.set('toJSON', {
   virtuals: true,

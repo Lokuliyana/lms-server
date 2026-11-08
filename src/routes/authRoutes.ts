@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authController } from '../controllers/authController';
 import { authRateLimiter, authAccountRateLimiter } from '../middlewares/rateLimiter';
-import { authenticate, requirePermission } from '../middlewares/auth';
+import { authenticate, optionalAuth, requirePermission } from '../middlewares/auth';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.get('/profile', authenticate, authController.getProfile);
 router.put('/profile', authenticate, authController.updateProfile);
 
 // New profile/user endpoints
-router.get('/user/:id', authenticate, authController.getUserById);
+router.get('/user/:id', optionalAuth, authController.getUserById);
 router.post('/admin/reset-password/:id', requirePermission('users.update'), authController.adminResetPassword);
 router.post('/change-password', authenticate, authController.changePassword);
 router.put('/edit-user/:id', authenticate, authController.editUser);

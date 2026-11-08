@@ -98,7 +98,20 @@ export const getExamById = async (req: Request, res: Response) => {
       $or: [{ examId: exam._id }, { classId: exam.class_id, examTitle: exam.title }],
     }).populate('scores.studentId', 'first_name last_name email phone');
 
-    res.json({ success: true, data: { exam, result } });
+    const resultDoc = result ? result.toObject() : null;
+    if (resultDoc && Array.isArray(resultDoc.scores)) {
+      resultDoc.scores.forEach((s: any) => {
+        if (s.studentId && typeof s.studentId === 'object') {
+          const fn = s.studentId.first_name || '';
+          const ln = s.studentId.last_name || '';
+          const full = `${fn} ${ln}`.trim() || s.studentId.email || 'Student';
+          s.studentId.full_name = full;
+          s.studentId.name = full;
+        }
+      });
+    }
+
+    res.json({ success: true, data: { exam, result: resultDoc } });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -185,7 +198,16 @@ export const recordBulkExamResults = async (req: Request, res: Response) => {
     const shouldPublish = is_published !== undefined ? Boolean(is_published) : (result ? result.isPublished : exam.is_published);
 
     if (result) {
-      result.scores = computedScores as any;
+      const mergedScoreMap = new Map<string, any>();
+      (result.scores || []).forEach((existingScore: any) => {
+        const sid = (existingScore.studentId?._id || existingScore.studentId)?.toString();
+        if (sid) mergedScoreMap.set(sid, existingScore);
+      });
+      computedScores.forEach((newScore: any) => {
+        const sid = (newScore.studentId?._id || newScore.studentId)?.toString();
+        if (sid) mergedScoreMap.set(sid, newScore);
+      });
+      result.scores = Array.from(mergedScoreMap.values()) as any;
       result.maxMarks = max;
       result.passMarks = exam.pass_marks;
       result.examDate = exam.held_date;

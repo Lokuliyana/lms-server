@@ -39,6 +39,9 @@ router.get('/:id', optionalAuth, classController.getClassById);
 router.put('/:id', requirePermission('classes.update'), classController.updateClass);
 router.delete('/:id', requirePermission('classes.delete'), classController.deleteClass);
 router.get('/:id/students', requirePermission('classes.read'), classController.getEnrolledStudents);
+router.post('/:id/students/:studentId/revoke', requirePermission('classes.update'), classController.revokeStudentAccess);
+router.get('/:id/candidates', requirePermission('classes.read'), classController.getCandidateStudents);
+router.post('/:id/manual-enroll', requirePermission('classes.update'), classController.manualEnrollStudents);
 
 // Assignment routes under a specific class
 router.post('/:id/assignments', requirePermission('assignments.manage'), assignmentController.createAssignment);

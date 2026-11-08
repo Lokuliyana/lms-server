@@ -8,6 +8,32 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const AttendanceRecord_1 = __importDefault(require("../models/AttendanceRecord"));
 const Class_1 = require("../models/Class");
 const ClassEnrollment_1 = require("../models/ClassEnrollment");
+function normalizeSheetStudentNames(sheet) {
+    if (!sheet)
+        return;
+    const list = Array.isArray(sheet) ? sheet : [sheet];
+    list.forEach((s) => {
+        if (Array.isArray(s.records)) {
+            s.records.forEach((r) => {
+                if (r.studentId && typeof r.studentId === "object") {
+                    const u = r.studentId;
+                    const first = u.first_name || u.firstName || "";
+                    const last = u.last_name || u.lastName || "";
+                    const combined = `${first} ${last}`.trim();
+                    const fullName = u.full_name ||
+                        u.fullName ||
+                        (combined.length > 0 ? combined : null) ||
+                        u.computedName ||
+                        u.name ||
+                        u.email ||
+                        "Student";
+                    u.full_name = fullName;
+                    u.name = fullName;
+                }
+            });
+        }
+    });
+}
 const markAttendance = async (req, res) => {
     try {
         const { classId, date, sessionTitle, sessionType, records, notes } = req.body;
@@ -65,8 +91,9 @@ const markAttendance = async (req, res) => {
             });
         }
         const populated = await AttendanceRecord_1.default.findById(attendance._id)
-            .populate("markedBy", "name email full_name")
-            .populate("records.studentId", "name email full_name username student_profile");
+            .populate("markedBy", "first_name last_name email name full_name")
+            .populate("records.studentId", "first_name last_name email phone avatar student_profile");
+        normalizeSheetStudentNames(populated);
         res.status(201).json({ success: true, data: populated });
     }
     catch (err) {
@@ -103,8 +130,9 @@ const updateAttendance = async (req, res) => {
         attendance.markedBy = new mongoose_1.default.Types.ObjectId(userId);
         await attendance.save();
         const populated = await AttendanceRecord_1.default.findById(attendance._id)
-            .populate("markedBy", "name email full_name")
-            .populate("records.studentId", "name email full_name username student_profile");
+            .populate("markedBy", "first_name last_name email name full_name")
+            .populate("records.studentId", "first_name last_name email phone avatar student_profile");
+        normalizeSheetStudentNames(populated);
         res.json({ success: true, data: populated });
     }
     catch (err) {
@@ -116,9 +144,15 @@ exports.updateAttendance = updateAttendance;
 const getClassAttendance = async (req, res) => {
     try {
         const { classId } = req.params;
-        const { from, to } = req.query;
+        const { from, to, month } = req.query;
         const query = { classId: new mongoose_1.default.Types.ObjectId(classId) };
-        if (from || to) {
+        if (month && /^\d{4}-\d{2}$/.test(month.trim())) {
+            const [y, m] = month.trim().split('-').map(Number);
+            const startOfMonth = new Date(Date.UTC(y, m - 1, 1));
+            const endOfMonth = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+            query.date = { $gte: startOfMonth, $lte: endOfMonth };
+        }
+        else if (from || to) {
             query.date = {};
             if (from)
                 query.date.$gte = new Date(from);
@@ -127,8 +161,9 @@ const getClassAttendance = async (req, res) => {
         }
         const records = await AttendanceRecord_1.default.find(query)
             .sort({ date: -1 })
-            .populate("markedBy", "name email full_name")
-            .populate("records.studentId", "name email full_name username student_profile");
+            .populate("markedBy", "first_name last_name email name full_name")
+            .populate("records.studentId", "first_name last_name email phone avatar student_profile");
+        normalizeSheetStudentNames(records);
         res.json({ success: true, data: records });
     }
     catch (err) {
@@ -207,8 +242,16 @@ exports.getMyAttendance = getMyAttendance;
 const getClassAttendanceStats = async (req, res) => {
     try {
         const { classId } = req.params;
-        const records = await AttendanceRecord_1.default.find({ classId: new mongoose_1.default.Types.ObjectId(classId) })
-            .populate("records.studentId", "name email full_name username")
+        const { month } = req.query;
+        const query = { classId: new mongoose_1.default.Types.ObjectId(classId) };
+        if (month && /^\d{4}-\d{2}$/.test(month.trim())) {
+            const [y, m] = month.trim().split('-').map(Number);
+            const startOfMonth = new Date(Date.UTC(y, m - 1, 1));
+            const endOfMonth = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+            query.date = { $gte: startOfMonth, $lte: endOfMonth };
+        }
+        const records = await AttendanceRecord_1.default.find(query)
+            .populate("records.studentId", "first_name last_name email phone avatar")
             .lean();
         const totalSessions = records.length;
         let totalPresent = 0;

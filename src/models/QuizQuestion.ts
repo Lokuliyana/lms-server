@@ -1,7 +1,29 @@
-import mongoose from "mongoose";
-const { Schema } = mongoose;
+import mongoose, { Document, Schema } from "mongoose";
 
-const quizQuestionSchema = new Schema({
+export interface IQuizQuestion extends Document {
+  frontend_id?: string;
+  quiz_id: mongoose.Types.ObjectId;
+  type: 'mcq' | 'true-false' | 'fill-blank' | 'multiple-select' | 'slider' | 'drag-drop';
+  question: string;
+  options?: string[];
+  image?: string | null;
+  correct_answer: any;
+  explanation?: string;
+  marks: number;
+  formula?: string | null;
+  tolerance?: number;
+  sliderRange?: {
+    min?: number;
+    max?: number;
+    step?: number;
+  };
+  dragItems?: {
+    items?: string[];
+    matches?: string[];
+  };
+}
+
+const quizQuestionSchema = new Schema<IQuizQuestion>({
   frontend_id: { type: String, sparse: true, unique: true },
   quiz_id: { type: Schema.Types.ObjectId, ref: 'Quiz', required: true },
   type: {
@@ -24,6 +46,10 @@ const quizQuestionSchema = new Schema({
   explanation: { type: String },
   marks: { type: Number, required: true },
 
+  // Mathematical formula and numerical tolerance
+  formula: { type: String, default: null },
+  tolerance: { type: Number, default: 0 },
+
   // Optional fields for advanced types
   sliderRange: {
     min: { type: Number },
@@ -39,4 +65,5 @@ const quizQuestionSchema = new Schema({
 
 quizQuestionSchema.index({ quiz_id: 1 });
 
-export const QuizQuestion = mongoose.model('QuizQuestion',  quizQuestionSchema);
+export const QuizQuestion = (mongoose.models.QuizQuestion as mongoose.Model<IQuizQuestion>) || mongoose.model<IQuizQuestion>('QuizQuestion', quizQuestionSchema);
+

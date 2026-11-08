@@ -111,7 +111,21 @@ export const authController = {
       
       const permissions = perms.map((p: any) => p.key);
 
-      const userObj = { ...user, role: legacyRole, permissions };
+      const StudentProfile = mongoose.model('StudentProfile');
+      const profileDoc = await StudentProfile.findOne({ user_id: user._id }).lean();
+      const profile = (profileDoc as any) || {};
+
+      const userObj = {
+        ...user,
+        ...profile,
+        _id: user._id.toString(),
+        id: user._id.toString(),
+        user_id: user._id.toString(),
+        full_name: profile.full_name || `${user.first_name} ${user.last_name}`.trim(),
+        role: legacyRole,
+        permissions
+      };
+      delete (userObj as any).password_hash;
       res.status(200).json({ success: true, user: userObj, token });
     } catch (err) {
       next(err);
@@ -182,11 +196,15 @@ export const authController = {
       const userObj = {
         ...user.toObject(),
         ...profile,
+        _id: user._id.toString(),
+        id: user._id.toString(),
+        user_id: user._id.toString(),
         student_profile: profileDoc || null,
-        full_name: `${user.first_name} ${user.last_name}`.trim(),
+        full_name: (profileDoc as any)?.full_name || `${user.first_name} ${user.last_name}`.trim(),
         role: legacyRole,
         permissions
       };
+      delete (userObj as any).password_hash;
       res.status(200).json({ success: true, data: userObj, user: userObj });
     } catch (err) {
       next(err);
@@ -297,10 +315,19 @@ export const authController = {
       const userObj = {
         ...user.toObject(),
         ...profileObj,
+        _id: user._id.toString(),
+        id: user._id.toString(),
+        user_id: user._id.toString(),
         student_profile: updatedProfile ? profileObj : null,
         full_name: `${user.first_name} ${user.last_name}`.trim(),
         role: legacyRole,
       };
+      delete (userObj as any).password_hash;
+
+      try {
+        const { invalidateConfigCache } = await import('./systemConfigController');
+        invalidateConfigCache();
+      } catch (e) {}
 
       res.status(200).json({ success: true, message: 'Profile updated successfully', data: userObj, user: userObj });
     } catch (err) {
@@ -310,7 +337,15 @@ export const authController = {
 
   async getUserById(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await User.findById(req.params.id).lean();
+      let user = await User.findById(req.params.id).select('-password_hash').lean();
+      const StudentProfile = mongoose.model('StudentProfile');
+      if (!user) {
+        // Fallback: Check if req.params.id is a StudentProfile ID
+        const pDoc = await StudentProfile.findById(req.params.id).lean();
+        if (pDoc && (pDoc as any).user_id) {
+          user = await User.findById((pDoc as any).user_id).select('-password_hash').lean();
+        }
+      }
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
       
       const Role = mongoose.model('Role');
@@ -322,11 +357,28 @@ export const authController = {
       else if (roleNames.includes('teacher')) role = 'teacher';
       else if (roleNames.includes('moderator')) role = 'moderator';
 
-      let profile = {};
-      const StudentProfile = mongoose.model('StudentProfile');
-      profile = await StudentProfile.findOne({ user_id: user._id }).lean() || {};
+      const profile = (await StudentProfile.findOne({ user_id: user._id }).lean()) || {};
 
-      res.status(200).json({ success: true, data: { ...user, ...profile, role } });
+      const computedFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email;
+      const profileObj: any = profile;
+
+      const data = {
+        ...user,
+        ...profileObj,
+        _id: user._id.toString(), // Ensure user ID takes precedence over profile ID
+        id: user._id.toString(),
+        user_id: user._id.toString(),
+        full_name: profileObj.full_name || computedFullName,
+        bio: profileObj.bio || '',
+        qualifications: profileObj.qualifications || '',
+        avatar: user.avatar || profileObj.avatar_url || '',
+        avatar_url: profileObj.avatar_url || user.avatar || '',
+        role,
+        roleNames,
+      };
+      delete (data as any).password_hash;
+
+      res.status(200).json({ success: true, data, user: data });
     } catch (err) {
       next(err);
     }
@@ -388,26 +440,61 @@ export const authController = {
   async editUser(req: Request, res: Response, next: NextFunction) {
     try {
       const requesterId = (req.user?._id || req.user?.userId || '').toString();
-      const isSelf = requesterId === req.params.id;
-      const canUpdateUsers = req.user?.permissions?.includes('users.update');
+      let targetUserId = req.params.id;
+
+      let user = await User.findById(targetUserId);
+      const StudentProfile = mongoose.model('StudentProfile');
+      if (!user) {
+        // Fallback: Check if targetUserId is a StudentProfile ID
+        const pDoc = await StudentProfile.findById(targetUserId);
+        if (pDoc && (pDoc as any).user_id) {
+          user = await User.findById((pDoc as any).user_id);
+          if (user) targetUserId = user._id.toString();
+        }
+      }
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+      const isSelf = requesterId === user._id.toString();
+      const canUpdateUsers = req.user?.permissions?.includes('users.update') || req.user?.permissions?.includes('*');
       if (!isSelf && !canUpdateUsers) {
         return res.status(403).json({ success: false, message: 'Forbidden: Insufficient permissions to edit other user profiles' });
       }
 
-      const { full_name, phone, school, grade, birth_date, ol_year, al_year, bio, qualifications, role, role_ids } = req.body;
-      const user = await User.findById(req.params.id);
-      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-      
-      if (phone) {
+      const {
+        full_name,
+        first_name,
+        last_name,
+        phone,
+        avatar,
+        avatar_url,
+        school,
+        grade,
+        birth_date,
+        ol_year,
+        al_year,
+        bio,
+        qualifications,
+        role,
+        role_ids
+      } = req.body;
+
+      if (phone !== undefined) {
         user.phone = phone;
       }
-      if (full_name) {
+      if (first_name) user.first_name = first_name;
+      if (last_name) user.last_name = last_name;
+
+      if (full_name && !first_name && !last_name) {
         const parts = full_name.trim().split(' ');
         user.first_name = parts[0];
-        user.last_name = parts.slice(1).join(' ') || '-';
+        user.last_name = parts.slice(1).join(' ') || parts[0] || '-';
       }
 
-      let isStudentRole = true;
+      const effectiveAvatar = avatar || avatar_url;
+      if (effectiveAvatar) {
+        user.avatar = effectiveAvatar;
+      }
+
       if (canUpdateUsers && (role || role_ids)) {
         const Role = mongoose.model('Role');
         let resolvedRoleIds = role_ids;
@@ -419,27 +506,57 @@ export const authController = {
         }
         if (resolvedRoleIds && Array.isArray(resolvedRoleIds) && resolvedRoleIds.length > 0) {
           user.role_ids = resolvedRoleIds;
-          const assignedRoles = await Role.find({ _id: { $in: resolvedRoleIds } });
-          isStudentRole = assignedRoles.some((r: any) => r.name.toLowerCase() === 'student');
-          if (!isStudentRole) {
-            const StudentProfile = mongoose.model('StudentProfile');
-            await StudentProfile.deleteOne({ user_id: user._id });
-          }
         }
       }
 
       await user.save();
 
-      if (isStudentRole) {
-        const StudentProfile = mongoose.model('StudentProfile');
-        await StudentProfile.findOneAndUpdate(
-          { user_id: user._id },
-          { full_name, school, grade, birth_date, ol_year, al_year, bio, qualifications },
-          { upsert: true }
-        );
-      }
+      const userFullName = full_name ? full_name.trim() : `${user.first_name} ${user.last_name}`.trim();
+      const profileData: any = {
+        user_id: user._id,
+        full_name: userFullName,
+      };
+      if (effectiveAvatar) profileData.avatar_url = effectiveAvatar;
+      if (school !== undefined) profileData.school = school;
+      if (grade !== undefined) profileData.grade = grade;
+      if (birth_date !== undefined) profileData.birth_date = birth_date;
+      if (ol_year !== undefined) profileData.ol_year = ol_year;
+      if (al_year !== undefined) profileData.al_year = al_year;
+      if (bio !== undefined) profileData.bio = bio;
+      if (qualifications !== undefined) profileData.qualifications = qualifications;
 
-      res.status(200).json({ success: true, message: 'Profile updated' });
+      const updatedProfile = await StudentProfile.findOneAndUpdate(
+        { user_id: user._id },
+        { $set: profileData },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      try {
+        const { invalidateConfigCache } = await import('./systemConfigController');
+        invalidateConfigCache();
+      } catch (e) {}
+
+      const Role = mongoose.model('Role');
+      const roles = await Role.find({ _id: { $in: user.role_ids } });
+      const roleNames = roles.map((r: any) => r.name?.toLowerCase());
+      const legacyRole = roleNames.includes('admin') ? 'admin' 
+                       : roleNames.includes('teacher') ? 'teacher' 
+                       : roleNames.includes('moderator') ? 'moderator'
+                       : 'student';
+
+      const profileObj = (updatedProfile as any)?.toObject ? (updatedProfile as any).toObject() : updatedProfile;
+      const userObj = {
+        ...user.toObject(),
+        ...profileObj,
+        _id: user._id.toString(),
+        id: user._id.toString(),
+        user_id: user._id.toString(),
+        full_name: userFullName,
+        role: legacyRole,
+      };
+      delete (userObj as any).password_hash;
+
+      res.status(200).json({ success: true, message: 'Profile updated', data: userObj, user: userObj });
     } catch (err) {
       next(err);
     }

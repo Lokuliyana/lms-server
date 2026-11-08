@@ -33,6 +33,7 @@ export const getDeliveries = async (req: Request, res: Response) => {
         .populate('student_id', 'first_name last_name email phone')
         .populate('class_id', 'title class_id grade subject')
         .populate('store_order_id')
+        .populate('study_pack_id', 'title cover_image price')
         .sort({ created_at: -1 })
         .skip(skip)
         .limit(limitNum),
@@ -62,6 +63,7 @@ export const getMyDeliveries = async (req: Request, res: Response) => {
     const deliveries = await DeliveryOrder.find({ student_id: userId })
       .populate('class_id', 'title class_id grade subject')
       .populate('store_order_id')
+      .populate('study_pack_id', 'title cover_image price')
       .sort({ created_at: -1 });
 
     res.json({ success: true, count: deliveries.length, data: deliveries });

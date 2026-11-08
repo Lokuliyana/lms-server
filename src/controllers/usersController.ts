@@ -48,16 +48,6 @@ export const usersController = {
       user.role_ids = role_ids;
       await user.save({ session });
 
-      // Fix 1.6: Orphaned/zombie profiles
-      // Role-change transaction deletes the prior profile document atomically.
-      const Role = mongoose.model('Role');
-      const newRoles = await Role.find({ _id: { $in: role_ids } }).session(session);
-      const isStudent = newRoles.some((r: any) => r.name === 'Student');
-
-      if (!isStudent) {
-        await StudentProfile.deleteOne({ user_id: user._id }).session(session);
-      }
-
       await session.commitTransaction();
       res.status(200).json({ success: true, message: 'User roles updated' });
     } catch (err) {

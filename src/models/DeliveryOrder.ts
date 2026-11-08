@@ -12,6 +12,7 @@ export interface IDeliveryOrder extends Document {
   student_id: mongoose.Types.ObjectId;
   class_id?: mongoose.Types.ObjectId;
   store_order_id?: mongoose.Types.ObjectId;
+  study_pack_id?: mongoose.Types.ObjectId;
   month_key?: string;
   delivery_method: string;
   shipping_address: string;
@@ -32,6 +33,7 @@ const deliveryOrderSchema = new Schema<IDeliveryOrder>({
   student_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   class_id: { type: Schema.Types.ObjectId, ref: 'Class', required: false, index: true },
   store_order_id: { type: Schema.Types.ObjectId, ref: 'StoreOrder', required: false, index: true },
+  study_pack_id: { type: Schema.Types.ObjectId, ref: 'StudyPack', required: false, index: true },
   month_key: { type: String, required: false },
   delivery_method: { type: String, default: 'Courier' },
   shipping_address: { type: String, default: 'Profile Address' },

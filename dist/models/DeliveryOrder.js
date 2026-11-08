@@ -40,6 +40,7 @@ const deliveryOrderSchema = new mongoose_1.Schema({
     student_id: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     class_id: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Class', required: false, index: true },
     store_order_id: { type: mongoose_1.Schema.Types.ObjectId, ref: 'StoreOrder', required: false, index: true },
+    study_pack_id: { type: mongoose_1.Schema.Types.ObjectId, ref: 'StudyPack', required: false, index: true },
     month_key: { type: String, required: false },
     delivery_method: { type: String, default: 'Courier' },
     shipping_address: { type: String, default: 'Profile Address' },

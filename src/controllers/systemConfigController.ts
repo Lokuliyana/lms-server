@@ -22,10 +22,50 @@ export const getSystemConfig = async (req: Request, res: Response) => {
       return res.json({ success: true, data: cachedConfig });
     }
 
-    let config = await TenantSettings.findOne().lean();
+    let config: any = await TenantSettings.findOne().lean();
     if (!config) {
       const created = await TenantSettings.create({});
       config = created.toObject();
+    }
+
+    try {
+      const { User } = await import('../models/User');
+      const { Role } = await import('../models/Role');
+      const { StudentProfile } = await import('../models/StudentProfile');
+      const teacherRoles = await Role.find({ name: /^teacher$/i });
+      if (teacherRoles.length > 0) {
+        const teacherRoleIds = teacherRoles.map((r: any) => r._id);
+        let teacher = null;
+        if (config.instructorName) {
+          const parts = config.instructorName.trim().split(' ');
+          teacher = await User.findOne({
+            role_ids: { $in: teacherRoleIds },
+            $or: [
+              { first_name: new RegExp(parts[0], 'i') },
+              { email: 'teacher@lms.com' }
+            ]
+          }).lean();
+        }
+        if (!teacher) {
+          teacher = await User.findOne({ role_ids: { $in: teacherRoleIds } }).lean();
+        }
+        if (teacher) {
+          const profile = await StudentProfile.findOne({ user_id: (teacher as any)._id }).lean();
+          const fullName = (profile as any)?.full_name || `${(teacher as any).first_name || ''} ${(teacher as any).last_name || ''}`.trim();
+          config.leadTeacher = {
+            id: (teacher as any)._id,
+            full_name: fullName,
+            bio: (profile as any)?.bio || '',
+            qualifications: (profile as any)?.qualifications || '',
+            avatar: (teacher as any).avatar || (profile as any)?.avatar_url || '',
+          };
+          if (!config.instructorName || config.instructorName === 'Danidu') {
+            config.instructorName = fullName;
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback silently if query fails
     }
 
     cachedConfig = config;

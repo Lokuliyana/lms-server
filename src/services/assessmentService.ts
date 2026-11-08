@@ -16,6 +16,7 @@ import { TenantSettings } from "../models/TenantSettings";
 import { Subject } from "../models/Subject";
 import { Grade } from "../models/Grade";
 import { resolveSubject, resolveGrade } from "../utils/taxonomyResolver";
+import { evaluateAnswers } from "./quiz/evaluationEngine";
 
 // Ensure referenced models are registered in mongoose model registry
 const _requiredModels = [Subject, Grade, Class];
@@ -85,73 +86,9 @@ function stripSolutions(q) {
   return safe;
 }
 
-// Compute grading for a submission
-function computeGrading(questions: any[], answerMap: any) {
-  let totalScore = 0;
-  let maxScore = 0;
-  let correctCount = 0;
-  let totalTimeMs = 0;
-  const formattedAnswers = [];
-
-  for (const q of questions) {
-    const marks = q.marks || 1;
-    maxScore += marks;
-
-    const raw = answerMap[q._id.toString()];
-    const userAnswer = typeof raw === "object" && raw !== null ? raw.answer : raw;
-    const timeMs = typeof raw === "object" && raw !== null && typeof raw.time_ms === "number" ? raw.time_ms : 0;
-
-    let isCorrect = false;
-    let earnedMarks = 0;
-
-    if (Array.isArray(q.correct_answer) && Array.isArray(userAnswer)) {
-      // Set intersection for partial credit
-      const correctSet = new Set(q.correct_answer.map(String));
-      const userSet = new Set(userAnswer.map(String));
-      
-      let matchCount = 0;
-      let wrongCount = 0;
-      userSet.forEach(val => {
-        if (correctSet.has(val)) matchCount++;
-        else wrongCount++;
-      });
-
-      // Partial credit formula: Max(0, matches - penalties) / totalCorrect
-      const netCorrect = Math.max(0, matchCount - wrongCount);
-      earnedMarks = correctSet.size > 0 ? (netCorrect / correctSet.size) * marks : 0;
-      isCorrect = (earnedMarks === marks); // fully correct
-    } else {
-      isCorrect = String(userAnswer) === String(q.correct_answer);
-      if (isCorrect) earnedMarks = marks;
-    }
-
-    if (isCorrect) {
-      correctCount += 1;
-    }
-    totalScore += earnedMarks;
-
-    formattedAnswers.push({
-      question_id: q._id,
-      answer: userAnswer,
-      is_correct: isCorrect,
-      score: earnedMarks,
-      time_ms: timeMs,
-    });
-
-    totalTimeMs += timeMs;
-  }
-
-  const percent = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
-
-  return {
-    formattedAnswers,
-    totalScore,
-    maxScore,
-    correctCount,
-    totalQuestions: questions.length,
-    totalTimeSec: Math.round(totalTimeMs / 1000),
-    percent,
-  };
+// Compute grading for a submission using the pure evaluation engine
+export function computeGrading(questions: any[], answerMap: any) {
+  return evaluateAnswers(questions, answerMap);
 }
 
 // Perf windows & scopes
@@ -317,6 +254,7 @@ export const updateQuestion = async (questionId, data) => {
       "explanation",
       "image",
       "formula",
+      "tolerance",
       "dragItems",
       "sliderRange",
       "meta",
@@ -345,7 +283,7 @@ export const getAllQuizzesForPlay = async () => {
 
     const quizIds = quizzes.map((q) => q._id);
     const questions = await QuizQuestion.find({ quiz_id: { $in: quizIds } })
-      .select("quiz_id type question options image marks sliderRange dragItems")
+      .select("quiz_id type question options image marks sliderRange dragItems formula tolerance")
       .lean();
 
     const map = {};
@@ -394,7 +332,7 @@ export const getQuizByIdForPlay = async (quizId) => {
     if (!quiz) return null;
 
     const questions = await QuizQuestion.find({ quiz_id: quiz._id })
-      .select("quiz_id type question options image marks sliderRange dragItems")
+      .select("quiz_id type question options image marks sliderRange dragItems formula tolerance")
       .lean();
 
     const stripped = questions.map(stripSolutions);
@@ -428,39 +366,42 @@ export const getSubmissionById = async (submissionId, userId) => {
 
   const submission = await QuizSubmission.findById(submissionId)
     .populate("quiz_id", "title subject")
-    .populate("answers.question_id");
+    .populate("answers.question_id")
+    .lean();
 
   if (!submission) return null;
   if (submission.user_id.toString() !== userId.toString()) return null;
 
-  const fullQuiz = await QuizQuestion.find({
-    quiz_id: submission.quiz_id._id,
-  }).lean();
-  const questionsMap = {};
-  for (const q of fullQuiz) {
-    questionsMap[q._id.toString()] = {
-      id: q._id,
+  // Single-pass mapping directly from populated answers, avoiding redundant fullQuiz query
+  const mappedAnswers = (submission.answers || []).map((ans: any) => {
+    const q = ans.question_id && typeof ans.question_id === "object" ? ans.question_id : {};
+    const qid = q._id ? q._id.toString() : (ans.question_id ? ans.question_id.toString() : "");
+
+    const correctAnswer = q.correct_answer ?? ans.feedback?.correct_answer;
+    const canonicalSolution = ans.feedback?.canonical_solution;
+    const explanation = q.explanation ?? ans.feedback?.explanation ?? "";
+    const maxScore = ans.max_score !== undefined ? ans.max_score : (q.marks !== undefined ? Number(q.marks) : 1);
+
+    return {
+      id: qid,
       type: q.type,
       question: q.question,
       formula: q.formula,
+      tolerance: q.tolerance,
       image: q.image,
       options: q.options,
-      correctAnswer: q.correct_answer,
-      explanation: q.explanation,
+      correctAnswer,
+      canonicalSolution,
+      explanation,
       dragItems: q.dragItems,
       sliderRange: q.sliderRange,
+      userAnswer: ans.answer,
+      isCorrect: ans.is_correct,
+      score: ans.score,
+      maxScore,
+      timeMs: ans.time_ms,
+      feedback: ans.feedback,
     };
-  }
-
-  const mappedAnswers = submission.answers.map((ans) => {
-    const qid =
-      ans.question_id && ans.question_id._id
-        ? ans.question_id._id.toString()
-        : ans.question_id
-        ? ans.question_id.toString()
-        : "";
-    const question = questionsMap[qid] || {};
-    return { ...question, userAnswer: ans.answer, isCorrect: ans.is_correct };
   });
 
   const percent =
@@ -498,7 +439,8 @@ export const submitQuiz = async (
   userId,
   quizId,
   answerMap,
-  clientTotalTimeSec = 0
+  clientTotalTimeSec = 0,
+  meta?: { telemetry?: any; deviceInfo?: string; ipAddress?: string }
 ) => {
   try {
     // Validate ids up front
@@ -517,11 +459,11 @@ export const submitQuiz = async (
     // 2) Fetch questions
     const questions = await QuizQuestion.find({ quiz_id: quizObjId }).lean();
 
-    // 3) Grade
+    // 3) Grade via pure evaluationEngine
     let grading;
     try {
-      grading = computeGrading(questions, answerMap);
-    } catch (e) {
+      grading = evaluateAnswers(questions, answerMap);
+    } catch (e: any) {
       e.code = "GRADING_FAILED";
       e.meta = { questionsCount: questions.length };
       throw e;
@@ -557,34 +499,37 @@ export const submitQuiz = async (
       time_spent: clientTotalTimeSec || totalTimeSec,
       attempt_number,
       submitted_at: new Date(),
+      device_info: meta?.telemetry ? JSON.stringify(meta.telemetry) : (meta?.deviceInfo || undefined),
+      ip_address: meta?.ipAddress || undefined,
     });
 
-    // 6) Aggregates
-    try {
-      await applySubmissionToPerf({
-        userId: userObjId,
-        quiz,
-        scorePct: percent,
-        timeSec: submission.time_spent || 0,
-        when: submission.submitted_at,
-      });
-    } catch (e) {
-      e.code = "AGGREGATE_PERF_FAILED";
-      e.meta = { submissionId: submission._id.toString() };
-      throw e;
-    }
+    // 6) Decouple background performance aggregation & challenge attachments via setImmediate (< 50ms response)
+    setImmediate(async () => {
+      try {
+        await applySubmissionToPerf({
+          userId: userObjId,
+          quiz,
+          scorePct: percent,
+          timeSec: submission.time_spent || 0,
+          when: submission.submitted_at,
+        });
+      } catch (e: any) {
+        console.error("BACKGROUND_AGGREGATE_PERF_FAILED:", {
+          message: e?.message,
+          submissionId: submission._id.toString(),
+        });
+      }
 
-    // 7) Attach to active challenges for this quiz
-    try {
-      await tryAttachSubmissionToChallenges({ submission });
-    } catch (e) {
-      console.error("ATTACH_CHALLENGES_FAILED (ignored):", {
-        message: e?.message,
-        name: e?.name,
-        stack: e?.stack,
-        submissionId: submission?._id?.toString(),
-      });
-    }
+      try {
+        await tryAttachSubmissionToChallenges({ submission });
+      } catch (e: any) {
+        console.error("ATTACH_CHALLENGES_FAILED (ignored):", {
+          message: e?.message,
+          name: e?.name,
+          submissionId: submission?._id?.toString(),
+        });
+      }
+    });
 
     return submission;
   } catch (error) {
@@ -1915,6 +1860,8 @@ export const upsertQuizAndQuestions = async (data: any) => {
       image: q.image || null,
       sliderRange: q.sliderRange,
       dragItems: q.dragItems,
+      formula: q.formula !== undefined ? q.formula : null,
+      tolerance: Number.isFinite(Number(q.tolerance)) ? Number(q.tolerance) : 0,
     }));
     await QuizQuestion.insertMany(qs, { ordered: false });
   }

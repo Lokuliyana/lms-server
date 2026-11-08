@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllClassesWithStudents = exports.getEnrolledClasses = exports.getEnrolledStudents = exports.deleteClass = exports.updateClass = exports.getClassById = exports.getClasses = exports.createClass = void 0;
+exports.manualEnrollStudents = exports.getCandidateStudents = exports.revokeStudentAccess = exports.getAllClassesWithStudents = exports.getEnrolledClasses = exports.getEnrolledStudents = exports.deleteClass = exports.updateClass = exports.getClassById = exports.getClasses = exports.createClass = void 0;
 const classService = __importStar(require("../services/classService"));
 const createClass = async (req, res) => {
     try {
@@ -60,6 +60,19 @@ function sanitizeClassForGuest(cls) {
     delete raw.zoom_join_url;
     delete raw.zoom_start_url;
     delete raw.enrolled_students;
+    raw.recordings = [];
+    raw.is_enrolled = false;
+    raw.has_access = false;
+    if (raw.special_session) {
+        raw.special_session = {
+            title: raw.special_session.title || '',
+            date: raw.special_session.date || '',
+            start: raw.special_session.start || '',
+            end: raw.special_session.end || '',
+            is_active: raw.special_session.is_active,
+            description: raw.special_session.description || '',
+        };
+    }
     return raw;
 }
 const getClasses = async (req, res) => {
@@ -86,7 +99,10 @@ const getClassById = async (req, res) => {
         if (!cls) {
             return res.status(404).json({ success: false, message: 'Class not found' });
         }
-        const isPrivileged = !!(req.user && (req.user.permissions?.includes('classes.update') || req.user.permissions?.includes('classes.create')));
+        const isPrivileged = !!(req.user &&
+            (['teacher', 'moderator', 'admin'].includes(req.user.role || '') ||
+                req.user.permissions?.includes('classes.update') ||
+                req.user.permissions?.includes('classes.create')));
         const userId = req.user ? (req.user._id || req.user.userId || '').toString() : null;
         let isEnrolled = false;
         if (userId) {
@@ -104,7 +120,14 @@ const getClassById = async (req, res) => {
         if (!isPrivileged && !isEnrolled) {
             return res.json({ success: true, data: sanitizeClassForGuest(cls) });
         }
-        res.json({ success: true, data: cls });
+        const safeData = typeof cls.toObject === 'function' ? cls.toObject() : { ...cls };
+        safeData.is_enrolled = isEnrolled;
+        safeData.has_access = isEnrolled || isPrivileged;
+        if (!isPrivileged) {
+            delete safeData.enrolled_students;
+            delete safeData.students;
+        }
+        res.json({ success: true, data: safeData });
     }
     catch (error) {
         console.error('Error fetching class:', error);
@@ -138,9 +161,25 @@ const deleteClass = async (req, res) => {
 exports.deleteClass = deleteClass;
 const getEnrolledStudents = async (req, res) => {
     try {
+        const isStaffOrTeacher = !!(req.user &&
+            (['teacher', 'moderator', 'admin'].includes(req.user.role || '') ||
+                req.user.permissions?.includes('classes.update') ||
+                req.user.permissions?.includes('classes.create') ||
+                req.user.permissions?.includes('attendance.mark') ||
+                req.user.permissions?.includes('grades.record')));
+        if (!isStaffOrTeacher) {
+            return res.status(403).json({
+                success: false,
+                message: 'Forbidden: Only teachers and staff can view enrolled student rosters',
+                count: 0,
+                students: [],
+                data: []
+            });
+        }
         const { id } = req.params;
-        const students = await classService.getEnrolledStudents(id);
-        res.json({ success: true, data: students });
+        const { month } = req.query;
+        const students = await classService.getEnrolledStudents(id, month);
+        res.json({ success: true, count: students.length, students, data: students, month });
     }
     catch (error) {
         console.error('Error fetching students:', error);
@@ -162,6 +201,17 @@ const getEnrolledClasses = async (req, res) => {
 exports.getEnrolledClasses = getEnrolledClasses;
 const getAllClassesWithStudents = async (req, res) => {
     try {
+        const isStaffOrTeacher = !!(req.user &&
+            (['teacher', 'moderator', 'admin'].includes(req.user.role || '') ||
+                req.user.permissions?.includes('classes.update') ||
+                req.user.permissions?.includes('classes.create')));
+        if (!isStaffOrTeacher) {
+            return res.status(403).json({
+                success: false,
+                message: 'Forbidden: Only teachers and staff can view student rosters',
+                data: []
+            });
+        }
         const classes = await classService.getAllClassesWithStudents();
         res.json({ success: true, data: classes });
     }
@@ -171,3 +221,50 @@ const getAllClassesWithStudents = async (req, res) => {
     }
 };
 exports.getAllClassesWithStudents = getAllClassesWithStudents;
+const revokeStudentAccess = async (req, res) => {
+    try {
+        const { id, studentId } = req.params;
+        const { month } = req.query;
+        const result = await classService.revokeStudentAccess(id, studentId, month);
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Error revoking student access:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to revoke access' });
+    }
+};
+exports.revokeStudentAccess = revokeStudentAccess;
+const getCandidateStudents = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { search, birthYear, age, ageOrYear, filter } = req.query;
+        const candidates = await classService.getCandidateStudents(id, {
+            search: search,
+            birthYear: birthYear ? Number(birthYear) : undefined,
+            age: age ? Number(age) : undefined,
+            ageOrYear: (ageOrYear || filter),
+        });
+        res.json({ success: true, count: candidates.length, data: candidates });
+    }
+    catch (error) {
+        console.error('Error fetching candidate students:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch candidate students' });
+    }
+};
+exports.getCandidateStudents = getCandidateStudents;
+const manualEnrollStudents = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { studentIds, month } = req.body;
+        if (!Array.isArray(studentIds) || studentIds.length === 0) {
+            return res.status(400).json({ success: false, message: 'studentIds array is required' });
+        }
+        const result = await classService.manualEnrollStudents(id, studentIds, month);
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Error manually enrolling students:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to manually enroll students' });
+    }
+};
+exports.manualEnrollStudents = manualEnrollStudents;

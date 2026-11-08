@@ -18,7 +18,7 @@ router.post('/logout', authController_1.authController.logout);
 router.get('/profile', auth_1.authenticate, authController_1.authController.getProfile);
 router.put('/profile', auth_1.authenticate, authController_1.authController.updateProfile);
 // New profile/user endpoints
-router.get('/user/:id', auth_1.authenticate, authController_1.authController.getUserById);
+router.get('/user/:id', auth_1.optionalAuth, authController_1.authController.getUserById);
 router.post('/admin/reset-password/:id', (0, auth_1.requirePermission)('users.update'), authController_1.authController.adminResetPassword);
 router.post('/change-password', auth_1.authenticate, authController_1.authController.changePassword);
 router.put('/edit-user/:id', auth_1.authenticate, authController_1.authController.editUser);

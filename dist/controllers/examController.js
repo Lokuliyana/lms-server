@@ -81,7 +81,19 @@ const getExamById = async (req, res) => {
         const result = await ExamResult_1.ExamResult.findOne({
             $or: [{ examId: exam._id }, { classId: exam.class_id, examTitle: exam.title }],
         }).populate('scores.studentId', 'first_name last_name email phone');
-        res.json({ success: true, data: { exam, result } });
+        const resultDoc = result ? result.toObject() : null;
+        if (resultDoc && Array.isArray(resultDoc.scores)) {
+            resultDoc.scores.forEach((s) => {
+                if (s.studentId && typeof s.studentId === 'object') {
+                    const fn = s.studentId.first_name || '';
+                    const ln = s.studentId.last_name || '';
+                    const full = `${fn} ${ln}`.trim() || s.studentId.email || 'Student';
+                    s.studentId.full_name = full;
+                    s.studentId.name = full;
+                }
+            });
+        }
+        res.json({ success: true, data: { exam, result: resultDoc } });
     }
     catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -156,7 +168,18 @@ const recordBulkExamResults = async (req, res) => {
         });
         const shouldPublish = is_published !== undefined ? Boolean(is_published) : (result ? result.isPublished : exam.is_published);
         if (result) {
-            result.scores = computedScores;
+            const mergedScoreMap = new Map();
+            (result.scores || []).forEach((existingScore) => {
+                const sid = (existingScore.studentId?._id || existingScore.studentId)?.toString();
+                if (sid)
+                    mergedScoreMap.set(sid, existingScore);
+            });
+            computedScores.forEach((newScore) => {
+                const sid = (newScore.studentId?._id || newScore.studentId)?.toString();
+                if (sid)
+                    mergedScoreMap.set(sid, newScore);
+            });
+            result.scores = Array.from(mergedScoreMap.values());
             result.maxMarks = max;
             result.passMarks = exam.pass_marks;
             result.examDate = exam.held_date;

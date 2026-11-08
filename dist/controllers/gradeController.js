@@ -7,6 +7,7 @@ exports.exportClassExamResults = exports.getMyExamResults = exports.getClassExam
 exports.calculateGrade = calculateGrade;
 const mongoose_1 = __importDefault(require("mongoose"));
 const ExamResult_1 = __importDefault(require("../models/ExamResult"));
+const Exam_1 = require("../models/Exam");
 const Class_1 = require("../models/Class");
 function calculateGrade(percentage) {
     if (percentage >= 85)
@@ -20,6 +21,32 @@ function calculateGrade(percentage) {
     if (percentage >= 40)
         return "S";
     return "F";
+}
+function normalizeExamScoresStudentNames(examResults) {
+    if (!examResults)
+        return;
+    const list = Array.isArray(examResults) ? examResults : [examResults];
+    list.forEach((exam) => {
+        if (Array.isArray(exam.scores)) {
+            exam.scores.forEach((s) => {
+                if (s.studentId && typeof s.studentId === "object") {
+                    const u = s.studentId;
+                    const first = u.first_name || u.firstName || "";
+                    const last = u.last_name || u.lastName || "";
+                    const combined = `${first} ${last}`.trim();
+                    const fullName = u.full_name ||
+                        u.fullName ||
+                        (combined.length > 0 ? combined : null) ||
+                        u.computedName ||
+                        u.name ||
+                        u.email ||
+                        "Student";
+                    u.full_name = fullName;
+                    u.name = fullName;
+                }
+            });
+        }
+    });
 }
 const recordExamResults = async (req, res) => {
     try {
@@ -46,21 +73,73 @@ const recordExamResults = async (req, res) => {
                 remarks: s.remarks || "",
             };
         });
-        const result = await ExamResult_1.default.create({
-            classId: new mongoose_1.default.Types.ObjectId(classId),
-            examTitle,
-            examDate: new Date(examDate),
-            termOrMonth: termOrMonth || "",
-            maxMarks: max,
-            passMarks: Number(passMarks) || 40,
-            isPublished: Boolean(isPublished),
-            recordedBy: new mongoose_1.default.Types.ObjectId(userId),
-            scores: computedScores,
-            notes,
+        let examDoc = await Exam_1.Exam.findOne({
+            $or: [
+                { class_id: classId, title: examTitle },
+                ...(req.body.examId && mongoose_1.default.Types.ObjectId.isValid(req.body.examId) ? [{ _id: req.body.examId }] : [])
+            ]
         });
+        if (!examDoc) {
+            examDoc = await Exam_1.Exam.create({
+                title: examTitle,
+                class_id: new mongoose_1.default.Types.ObjectId(classId),
+                exam_type: 'paper',
+                total_marks: max,
+                pass_marks: Number(passMarks) || 40,
+                held_date: new Date(examDate),
+                is_published: Boolean(isPublished),
+                created_by: new mongoose_1.default.Types.ObjectId(userId),
+                description: notes || '',
+            });
+        }
+        let result = await ExamResult_1.default.findOne({
+            $or: [
+                { examId: examDoc._id },
+                { classId: new mongoose_1.default.Types.ObjectId(classId), examTitle }
+            ]
+        });
+        if (result) {
+            const scoreMap = new Map();
+            (result.scores || []).forEach((sc) => {
+                const sid = (sc.studentId?._id || sc.studentId)?.toString();
+                if (sid)
+                    scoreMap.set(sid, sc);
+            });
+            computedScores.forEach((sc) => {
+                const sid = (sc.studentId?._id || sc.studentId)?.toString();
+                if (sid)
+                    scoreMap.set(sid, sc);
+            });
+            result.scores = Array.from(scoreMap.values());
+            result.maxMarks = max;
+            result.passMarks = Number(passMarks) || 40;
+            result.examDate = new Date(examDate);
+            result.termOrMonth = termOrMonth || result.termOrMonth;
+            result.isPublished = Boolean(isPublished);
+            result.recordedBy = new mongoose_1.default.Types.ObjectId(userId);
+            if (notes !== undefined)
+                result.notes = notes;
+            await result.save();
+        }
+        else {
+            result = await ExamResult_1.default.create({
+                examId: examDoc._id,
+                classId: new mongoose_1.default.Types.ObjectId(classId),
+                examTitle,
+                examDate: new Date(examDate),
+                termOrMonth: termOrMonth || "",
+                maxMarks: max,
+                passMarks: Number(passMarks) || 40,
+                isPublished: Boolean(isPublished),
+                recordedBy: new mongoose_1.default.Types.ObjectId(userId),
+                scores: computedScores,
+                notes,
+            });
+        }
         const populated = await ExamResult_1.default.findById(result._id)
-            .populate("recordedBy", "name email full_name")
-            .populate("scores.studentId", "name email full_name username student_profile");
+            .populate("recordedBy", "first_name last_name name email full_name")
+            .populate("scores.studentId", "first_name last_name email phone avatar student_profile");
+        normalizeExamScoresStudentNames(populated);
         res.status(201).json({ success: true, data: populated });
     }
     catch (err) {
@@ -72,9 +151,43 @@ exports.recordExamResults = recordExamResults;
 const updateExamResults = async (req, res) => {
     try {
         const { id } = req.params;
+        const targetId = Array.isArray(id) ? id[0] : id;
         const { examTitle, examDate, termOrMonth, maxMarks, passMarks, isPublished, scores, notes } = req.body;
         const userId = req.user?.userId || req.user?._id;
-        const result = await ExamResult_1.default.findById(id);
+        let result = await ExamResult_1.default.findById(targetId);
+        if (!result && mongoose_1.default.Types.ObjectId.isValid(targetId)) {
+            result = await ExamResult_1.default.findOne({ examId: targetId });
+        }
+        if (!result && mongoose_1.default.Types.ObjectId.isValid(targetId)) {
+            const examDoc = await Exam_1.Exam.findById(targetId);
+            if (examDoc) {
+                const max = Number(maxMarks) || examDoc.total_marks || 100;
+                const computedScores = (scores || []).map((s) => {
+                    const marks = Number(s.marksObtained) || 0;
+                    const pct = Math.round((marks / max) * 100 * 10) / 10;
+                    return {
+                        studentId: new mongoose_1.default.Types.ObjectId(s.studentId),
+                        marksObtained: marks,
+                        percentage: pct,
+                        grade: s.grade || calculateGrade(pct),
+                        remarks: s.remarks || "",
+                    };
+                });
+                result = await ExamResult_1.default.create({
+                    examId: examDoc._id,
+                    classId: examDoc.class_id,
+                    examTitle: examTitle || examDoc.title,
+                    examDate: examDate ? new Date(examDate) : (examDoc.held_date || new Date()),
+                    termOrMonth: termOrMonth || "",
+                    maxMarks: max,
+                    passMarks: Number(passMarks) || examDoc.pass_marks || 40,
+                    isPublished: isPublished !== undefined ? Boolean(isPublished) : Boolean(examDoc.is_published),
+                    recordedBy: new mongoose_1.default.Types.ObjectId(userId),
+                    scores: computedScores,
+                    notes: notes || examDoc.description || "",
+                });
+            }
+        }
         if (!result) {
             res.status(404).json({ success: false, message: "Exam result not found" });
             return;
@@ -95,23 +208,43 @@ const updateExamResults = async (req, res) => {
             result.notes = notes;
         const max = result.maxMarks || 100;
         if (scores && Array.isArray(scores)) {
-            result.scores = scores.map((s) => {
-                const marks = Number(s.marksObtained) || 0;
-                const pct = Math.round((marks / max) * 100 * 10) / 10;
-                return {
-                    studentId: new mongoose_1.default.Types.ObjectId(s.studentId),
-                    marksObtained: marks,
-                    percentage: pct,
-                    grade: s.grade || calculateGrade(pct),
-                    remarks: s.remarks || "",
-                };
+            const scoreMap = new Map();
+            (result.scores || []).forEach((sc) => {
+                const sid = (sc.studentId?._id || sc.studentId)?.toString();
+                if (sid)
+                    scoreMap.set(sid, sc);
             });
+            scores.forEach((s) => {
+                const sid = (s.studentId?._id || s.studentId)?.toString();
+                if (sid) {
+                    const marks = Number(s.marksObtained) || 0;
+                    const pct = Math.round((marks / max) * 100 * 10) / 10;
+                    scoreMap.set(sid, {
+                        studentId: new mongoose_1.default.Types.ObjectId(sid),
+                        marksObtained: marks,
+                        percentage: pct,
+                        grade: s.grade || calculateGrade(pct),
+                        remarks: s.remarks || "",
+                    });
+                }
+            });
+            result.scores = Array.from(scoreMap.values());
         }
         result.recordedBy = new mongoose_1.default.Types.ObjectId(userId);
         await result.save();
+        if (result.examId) {
+            await Exam_1.Exam.findByIdAndUpdate(result.examId, {
+                ...(examTitle ? { title: examTitle } : {}),
+                ...(examDate ? { held_date: new Date(examDate) } : {}),
+                ...(maxMarks ? { total_marks: Number(maxMarks) } : {}),
+                ...(passMarks ? { pass_marks: Number(passMarks) } : {}),
+                ...(isPublished !== undefined ? { is_published: Boolean(isPublished) } : {}),
+            });
+        }
         const populated = await ExamResult_1.default.findById(result._id)
-            .populate("recordedBy", "name email full_name")
-            .populate("scores.studentId", "name email full_name username student_profile");
+            .populate("recordedBy", "first_name last_name name email full_name")
+            .populate("scores.studentId", "first_name last_name email phone avatar student_profile");
+        normalizeExamScoresStudentNames(populated);
         res.json({ success: true, data: populated });
     }
     catch (err) {
@@ -146,6 +279,7 @@ exports.togglePublishExamResults = togglePublishExamResults;
 const getClassExamResults = async (req, res) => {
     try {
         const { classId } = req.params;
+        const { month } = req.query;
         const user = req.user;
         const permissions = user?.permissions || [];
         const isPrivileged = permissions.includes("grades.record") ||
@@ -155,11 +289,54 @@ const getClassExamResults = async (req, res) => {
         if (!isPrivileged) {
             query.isPublished = true;
         }
+        if (month && /^\d{4}-\d{2}$/.test(month.trim())) {
+            const [y, m] = month.trim().split('-').map(Number);
+            const startOfMonth = new Date(Date.UTC(y, m - 1, 1));
+            const endOfMonth = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+            query.$or = [
+                { termOrMonth: month.trim() },
+                { examDate: { $gte: startOfMonth, $lte: endOfMonth } },
+            ];
+        }
         const list = await ExamResult_1.default.find(query)
             .sort({ examDate: -1 })
-            .populate("recordedBy", "name email full_name")
-            .populate("scores.studentId", "name email full_name username student_profile")
+            .populate("recordedBy", "first_name last_name name email full_name")
+            .populate("scores.studentId", "first_name last_name email phone avatar student_profile")
             .lean();
+        // Also include standalone paper exams created for this class that don't have ExamResult records yet
+        const examClassQuery = { class_id: new mongoose_1.default.Types.ObjectId(classId) };
+        if (!isPrivileged) {
+            examClassQuery.is_published = true;
+        }
+        if (month && /^\d{4}-\d{2}$/.test(month.trim())) {
+            const [y, m] = month.trim().split('-').map(Number);
+            const startOfMonth = new Date(Date.UTC(y, m - 1, 1));
+            const endOfMonth = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+            examClassQuery.held_date = { $gte: startOfMonth, $lte: endOfMonth };
+        }
+        const standaloneExams = await Exam_1.Exam.find(examClassQuery).lean();
+        for (const se of standaloneExams) {
+            const alreadyInList = list.some((er) => (er.examId && er.examId.toString() === se._id.toString()) ||
+                er.examTitle?.toLowerCase() === se.title?.toLowerCase());
+            if (!alreadyInList) {
+                list.push({
+                    _id: se._id.toString(),
+                    examId: se._id,
+                    classId: se.class_id,
+                    examTitle: se.title,
+                    examDate: se.held_date,
+                    termOrMonth: "",
+                    maxMarks: se.total_marks || 100,
+                    passMarks: se.pass_marks || 40,
+                    isPublished: Boolean(se.is_published),
+                    scores: [],
+                    notes: se.description || "",
+                    isPendingEntry: true,
+                });
+            }
+        }
+        list.sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime());
+        normalizeExamScoresStudentNames(list);
         // If student, compute summary stats and keep only their score or anonymous ranking
         if (!isPrivileged) {
             const studentId = (user?.userId || user?._id || "").toString();

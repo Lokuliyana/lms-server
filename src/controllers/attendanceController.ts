@@ -4,6 +4,33 @@ import AttendanceRecord from "../models/AttendanceRecord";
 import { Class } from "../models/Class";
 import { ClassEnrollment } from "../models/ClassEnrollment";
 
+function normalizeSheetStudentNames(sheet: any) {
+  if (!sheet) return;
+  const list = Array.isArray(sheet) ? sheet : [sheet];
+  list.forEach((s: any) => {
+    if (Array.isArray(s.records)) {
+      s.records.forEach((r: any) => {
+        if (r.studentId && typeof r.studentId === "object") {
+          const u = r.studentId;
+          const first = u.first_name || u.firstName || "";
+          const last = u.last_name || u.lastName || "";
+          const combined = `${first} ${last}`.trim();
+          const fullName =
+            u.full_name ||
+            u.fullName ||
+            (combined.length > 0 ? combined : null) ||
+            u.computedName ||
+            u.name ||
+            u.email ||
+            "Student";
+          u.full_name = fullName;
+          u.name = fullName;
+        }
+      });
+    }
+  });
+}
+
 export const markAttendance = async (req: Request, res: Response): Promise<void> => {
   try {
     const { classId, date, sessionTitle, sessionType, records, notes } = req.body;
@@ -63,9 +90,10 @@ export const markAttendance = async (req: Request, res: Response): Promise<void>
     }
 
     const populated = await AttendanceRecord.findById(attendance._id)
-      .populate("markedBy", "name email full_name")
-      .populate("records.studentId", "name email full_name username student_profile");
+      .populate("markedBy", "first_name last_name email name full_name")
+      .populate("records.studentId", "first_name last_name email phone avatar student_profile");
 
+    normalizeSheetStudentNames(populated);
     res.status(201).json({ success: true, data: populated });
   } catch (err: any) {
     console.error("Error marking attendance:", err);
@@ -101,9 +129,10 @@ export const updateAttendance = async (req: Request, res: Response): Promise<voi
     await attendance.save();
 
     const populated = await AttendanceRecord.findById(attendance._id)
-      .populate("markedBy", "name email full_name")
-      .populate("records.studentId", "name email full_name username student_profile");
+      .populate("markedBy", "first_name last_name email name full_name")
+      .populate("records.studentId", "first_name last_name email phone avatar student_profile");
 
+    normalizeSheetStudentNames(populated);
     res.json({ success: true, data: populated });
   } catch (err: any) {
     console.error("Error updating attendance:", err);
@@ -114,10 +143,15 @@ export const updateAttendance = async (req: Request, res: Response): Promise<voi
 export const getClassAttendance = async (req: Request, res: Response): Promise<void> => {
   try {
     const { classId } = req.params;
-    const { from, to } = req.query;
+    const { from, to, month } = req.query;
 
     const query: any = { classId: new mongoose.Types.ObjectId(classId as string) };
-    if (from || to) {
+    if (month && /^\d{4}-\d{2}$/.test((month as string).trim())) {
+      const [y, m] = (month as string).trim().split('-').map(Number);
+      const startOfMonth = new Date(Date.UTC(y, m - 1, 1));
+      const endOfMonth = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+      query.date = { $gte: startOfMonth, $lte: endOfMonth };
+    } else if (from || to) {
       query.date = {};
       if (from) query.date.$gte = new Date(from as string);
       if (to) query.date.$lte = new Date(to as string);
@@ -125,9 +159,10 @@ export const getClassAttendance = async (req: Request, res: Response): Promise<v
 
     const records = await AttendanceRecord.find(query)
       .sort({ date: -1 })
-      .populate("markedBy", "name email full_name")
-      .populate("records.studentId", "name email full_name username student_profile");
+      .populate("markedBy", "first_name last_name email name full_name")
+      .populate("records.studentId", "first_name last_name email phone avatar student_profile");
 
+    normalizeSheetStudentNames(records);
     res.json({ success: true, data: records });
   } catch (err: any) {
     console.error("Error fetching class attendance:", err);
@@ -210,9 +245,18 @@ export const getMyAttendance = async (req: Request, res: Response): Promise<void
 export const getClassAttendanceStats = async (req: Request, res: Response): Promise<void> => {
   try {
     const { classId } = req.params;
+    const { month } = req.query;
 
-    const records = await AttendanceRecord.find({ classId: new mongoose.Types.ObjectId(classId as string) })
-      .populate("records.studentId", "name email full_name username")
+    const query: any = { classId: new mongoose.Types.ObjectId(classId as string) };
+    if (month && /^\d{4}-\d{2}$/.test((month as string).trim())) {
+      const [y, m] = (month as string).trim().split('-').map(Number);
+      const startOfMonth = new Date(Date.UTC(y, m - 1, 1));
+      const endOfMonth = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+      query.date = { $gte: startOfMonth, $lte: endOfMonth };
+    }
+
+    const records = await AttendanceRecord.find(query)
+      .populate("records.studentId", "first_name last_name email phone avatar")
       .lean();
 
     const totalSessions = records.length;

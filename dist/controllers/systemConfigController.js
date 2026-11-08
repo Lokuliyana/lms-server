@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -28,6 +61,46 @@ const getSystemConfig = async (req, res) => {
         if (!config) {
             const created = await TenantSettings_1.TenantSettings.create({});
             config = created.toObject();
+        }
+        try {
+            const { User } = await Promise.resolve().then(() => __importStar(require('../models/User')));
+            const { Role } = await Promise.resolve().then(() => __importStar(require('../models/Role')));
+            const { StudentProfile } = await Promise.resolve().then(() => __importStar(require('../models/StudentProfile')));
+            const teacherRoles = await Role.find({ name: /^teacher$/i });
+            if (teacherRoles.length > 0) {
+                const teacherRoleIds = teacherRoles.map((r) => r._id);
+                let teacher = null;
+                if (config.instructorName) {
+                    const parts = config.instructorName.trim().split(' ');
+                    teacher = await User.findOne({
+                        role_ids: { $in: teacherRoleIds },
+                        $or: [
+                            { first_name: new RegExp(parts[0], 'i') },
+                            { email: 'teacher@lms.com' }
+                        ]
+                    }).lean();
+                }
+                if (!teacher) {
+                    teacher = await User.findOne({ role_ids: { $in: teacherRoleIds } }).lean();
+                }
+                if (teacher) {
+                    const profile = await StudentProfile.findOne({ user_id: teacher._id }).lean();
+                    const fullName = profile?.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim();
+                    config.leadTeacher = {
+                        id: teacher._id,
+                        full_name: fullName,
+                        bio: profile?.bio || '',
+                        qualifications: profile?.qualifications || '',
+                        avatar: teacher.avatar || profile?.avatar_url || '',
+                    };
+                    if (!config.instructorName || config.instructorName === 'Danidu') {
+                        config.instructorName = fullName;
+                    }
+                }
+            }
+        }
+        catch (e) {
+            // Fallback silently if query fails
         }
         cachedConfig = config;
         cacheExpiry = now + CACHE_TTL_MS;

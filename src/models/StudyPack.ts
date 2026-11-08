@@ -24,6 +24,9 @@ export interface IStudyPack extends Document {
   recordings: mongoose.Types.ObjectId[];
   custom_videos: ICustomVideo[];
   materials: IStudyMaterial[];
+  recordings_count: number;
+  custom_videos_count: number;
+  materials_count: number;
   is_published: boolean;
   created_by?: mongoose.Types.ObjectId;
   created_at: Date;
@@ -58,13 +61,38 @@ const studyPackSchema = new Schema<IStudyPack>({
   recordings: [{ type: Schema.Types.ObjectId, ref: 'Recording' }],
   custom_videos: [customVideoSchema],
   materials: [studyMaterialSchema],
+  recordings_count: { type: Number, default: 0 },
+  custom_videos_count: { type: Number, default: 0 },
+  materials_count: { type: Number, default: 0 },
   is_published: { type: Boolean, default: true },
   created_by: { type: Schema.Types.ObjectId, ref: 'User' },
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
 });
 
+studyPackSchema.pre('save', function () {
+  if (Array.isArray(this.recordings)) {
+    if (this.recordings.length > 0 || !this.isNew || !this.recordings_count) {
+      this.recordings_count = this.recordings.length;
+    }
+  }
+  if (Array.isArray(this.custom_videos)) {
+    if (this.custom_videos.length > 0 || !this.isNew || !this.custom_videos_count) {
+      this.custom_videos_count = this.custom_videos.length;
+    }
+  }
+  if (Array.isArray(this.materials)) {
+    if (this.materials.length > 0 || !this.isNew || !this.materials_count) {
+      this.materials_count = this.materials.length;
+    }
+  }
+});
+
+// Indexes
+studyPackSchema.index({ is_published: 1, created_at: -1 });
+studyPackSchema.index({ is_published: 1, grade: 1, subject: 1 });
 studyPackSchema.index({ is_published: 1, grade: 1, class_id: 1 });
 studyPackSchema.index({ title: 'text', description: 'text' });
 
 export const StudyPack = (mongoose.models.StudyPack as mongoose.Model<IStudyPack>) || mongoose.model<IStudyPack>('StudyPack', studyPackSchema);
+

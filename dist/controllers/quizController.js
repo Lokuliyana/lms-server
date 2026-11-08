@@ -170,8 +170,8 @@ exports.getQuizByIdForUpdate = getQuizByIdForUpdate;
 // Submit answers
 const submitQuiz = async (req, res) => {
     const { quizId } = req.params;
-    const userId = req.user.userId;
-    const { answers = [], time_spent = 0 } = req.body;
+    const userId = req.user?.userId || req.user?._id;
+    const { answers = [], time_spent = 0, telemetry, device_info } = req.body;
     // answers: [{ question_id, answer, time_ms? }]
     const answerMap = {};
     for (const entry of answers) {
@@ -183,8 +183,11 @@ const submitQuiz = async (req, res) => {
                 ? { answer: entry.answer, time_ms: Number(entry.time_ms) || 0 }
                 : entry.answer;
     }
+    const rawIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const ipAddress = typeof rawIp === 'string' ? rawIp : (Array.isArray(rawIp) ? rawIp[0] : '');
+    const deviceInfo = typeof device_info === 'string' ? device_info : (req.headers['user-agent'] || '');
     try {
-        const submission = await assessmentService.submitQuiz(userId, quizId, answerMap, Number(time_spent) || 0);
+        const submission = await assessmentService.submitQuiz(userId, quizId, answerMap, Number(time_spent) || 0, { telemetry, deviceInfo, ipAddress });
         res.status(200).json({ message: "Quiz submitted successfully", submission });
     }
     catch (error) {
